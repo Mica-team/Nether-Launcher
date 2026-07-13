@@ -129,7 +129,7 @@ public class CallbackBridge {
     public static native void minibridgeInit();
 
     static {
-        System.loadLibrary("pojavexec");
+        System.loadLibrary("vmloader");
         minibridgeInit();
     }
 }

@@ -170,6 +170,9 @@ android {
             useLegacyPackaging = true
         }
         pickFirst '**/libbytehook.so'
+        // TODO do this properly and without prefab (it sucks)
+        pickFirst '**/libmojoexec.so'
+        pickFirst '**/liblinkerhook.so'
     }
 
     buildFeatures {

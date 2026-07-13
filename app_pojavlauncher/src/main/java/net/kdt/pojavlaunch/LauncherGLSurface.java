@@ -42,6 +42,7 @@ import fr.spse.gamepad_remapper.RemapperView;
 import git.artdeell.dnbootstrap.glfw.GLFW;
 import git.artdeell.dnbootstrap.glfw.GamepadEnableHandler;
 import git.artdeell.dnbootstrap.glfw.GrabListener;
+import git.artdeell.mojoexec.MojoExec;
 
 /**
  * Class dealing with showing minecraft surface and taking inputs to dispatch them to minecraft
@@ -322,7 +323,7 @@ public class LauncherGLSurface extends View implements GrabListener, GamepadEnab
             Log.w("MGLSurface", "Attempt to refresh size on null surface");
             return;
         }
-        JREUtils.configureRenderspecDisplay(windowWidth, windowHeight, (int) mSurface.getDisplay().getRefreshRate());
+        MojoExec.setDisplayParams(windowWidth, windowHeight, mSurface.getDisplay().getRefreshRate());
         mSurfaceProvider.updateSize();
     }
 

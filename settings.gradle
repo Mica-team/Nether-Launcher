@@ -19,3 +19,4 @@ include ':app_pojavlauncher'
 
 include ':forge_installer'
 include ':glfw:android-gradle'
+include ':glfw:mojoexec:jni_bindings'
