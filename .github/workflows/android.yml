@@ -57,12 +57,6 @@ jobs:
       - name: Create output directory
         run: mkdir -p out
 
-      - name: Build Publishing AAB
-        if: github.repository_owner == 'Mica-team' && github.ref_name == 'v3_openjdk'
-        run: |
-          gradle :app_pojavlauncher:bundleFullGplay
-          mv app_pojavlauncher/build/outputs/bundle/fullGplay/app_pojavlauncher-full-gplay.aab out/NetherLauncher-gplay.aab
-
       - name: Build Debug APK
         run: |
           gradle :app_pojavlauncher:assembleFullDebug
@@ -96,18 +90,7 @@ jobs:
           name: NetherLauncher-debug-noruntime
           path: out/NetherLauncher-debug-noruntime.apk
 
-      - name: Release Nether Launcher Nightly
-        if: github.repository_owner == 'Mica-team' && github.ref_name == 'v3_openjdk'
-        uses: softprops/action-gh-release@v3
-        with:
-          name: Nether Launcher Nightly Builds
-          prerelease: true
-          tag_name: nightly
-          body: |
-            Nether Launcher nightly build.
-            Commit hash: ${{ github.sha }}
-          files: |
-            out/NetherLauncher-release.apk
+      
 
       - name: Upload AAB
         if: github.repository_owner == 'Mica-team' && github.ref_name == 'v3_openjdk'
@@ -116,13 +99,4 @@ jobs:
           name: NetherLauncher-release-aab
           path: out/NetherLauncher-gplay.aab
 
-      - name: Upload to Google Play Testing Track
-        continue-on-error: true
-        if: github.repository_owner == 'Mica-team' && github.ref_name == 'v3_openjdk'
-        uses: r0adkll/upload-google-play@v1.1.5
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.SERVICE_JSON }}
-          packageName: git.artdeell.mjlaunch
-          releaseFiles: out/NetherLauncher-gplay.aab
-          track: internal
-          inAppUpdatePriority: 5
+    
