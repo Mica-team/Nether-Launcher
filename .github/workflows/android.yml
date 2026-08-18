@@ -85,12 +85,3 @@ jobs:
           path: out/NetherLauncher-debug-noruntime.apk
 
       
-
-      - name: Upload AAB
-        if: github.repository_owner == 'Mica-team' && github.ref_name == 'v3_openjdk'
-        uses: actions/upload-artifact@v4
-        with:
-          name: NetherLauncher-release-aab
-          path: out/NetherLauncher-gplay.aab
-
-    
