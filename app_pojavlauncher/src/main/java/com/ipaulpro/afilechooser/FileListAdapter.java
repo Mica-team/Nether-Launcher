@@ -16,18 +16,22 @@
 
 package com.ipaulpro.afilechooser;
 
-import android.content.*;
-import android.view.*;
-import android.widget.*;
-import java.io.*;
-import java.util.*;
-import net.kdt.pojavlaunch.*;
+import android.content.Context;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.TextView;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 import git.artdeell.mojo.R;
 
 /**
  * List adapter for Files.
- * 
+ *
  * @version 2013-12-11
  * @author paulburke (ipaulpro)
  *
@@ -36,28 +40,46 @@ import git.artdeell.mojo.R;
  */
 public class FileListAdapter extends BaseAdapter {
 
-    private final static int ICON_FOLDER = R.drawable.ic_px_folder;
-    private final static int ICON_FILE = R.drawable.ic_px_file;
+    private static final int ICON_FOLDER = R.drawable.ic_px_folder;
+    private static final int ICON_FILE = R.drawable.ic_px_file;
 
     private final LayoutInflater mInflater;
 
-    private List<File> mData = new ArrayList<File>();
+    private List<File> mData = new ArrayList<>();
 
     public FileListAdapter(Context context) {
         mInflater = LayoutInflater.from(context);
     }
 
     public void add(File file) {
+        if (file == null) {
+            return;
+        }
+
         mData.add(file);
         notifyDataSetChanged();
     }
 
     public void remove(File file) {
+        if (file == null) {
+            return;
+        }
+
         mData.remove(file);
         notifyDataSetChanged();
     }
 
     public void insert(File file, int index) {
+        if (file == null) {
+            return;
+        }
+
+        if (index < 0 || index > mData.size()) {
+            throw new IndexOutOfBoundsException(
+                    "Index: " + index + ", Size: " + mData.size()
+            );
+        }
+
         mData.add(index, file);
         notifyDataSetChanged();
     }
@@ -87,13 +109,18 @@ public class FileListAdapter extends BaseAdapter {
     }
 
     /**
-     * Set the list items without notifying on the clear. This prevents loss of
-     * scroll position.
+     * Set the list items without notifying on the clear.
+     * This prevents unnecessary changes to the current scroll position.
      *
-     * @param data
+     * @param data list of files
      */
     public void setListItems(List<File> data) {
-        mData = data;
+        if (data == null) {
+            mData = new ArrayList<>();
+        } else {
+            mData = data;
+        }
+
         notifyDataSetChanged();
     }
 
@@ -101,22 +128,49 @@ public class FileListAdapter extends BaseAdapter {
     public View getView(int position, View convertView, ViewGroup parent) {
         View row = convertView;
 
-        if (row == null)
-            row = mInflater.inflate(android.R.layout.simple_list_item_1, parent, false);
+        if (row == null) {
+            row = mInflater.inflate(
+                    android.R.layout.simple_list_item_1,
+                    parent,
+                    false
+            );
+        }
 
         TextView view = (TextView) row;
 
-        // Get the file at the current position
-        final File file = getItem(position);
+        File file = getItem(position);
 
-        // Set the TextView as the file name
+        if (file == null) {
+            view.setText("");
+            view.setCompoundDrawablesWithIntrinsicBounds(
+                    ICON_FILE,
+                    0,
+                    0,
+                    0
+            );
+            return row;
+        }
+
         view.setText(file.getName());
 
-        // If the item is not a directory, use the file icon
         int icon = file.isDirectory() ? ICON_FOLDER : ICON_FILE;
-        view.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0);
-        view.setCompoundDrawablePadding(20);
+
+        view.setCompoundDrawablesWithIntrinsicBounds(
+                icon,
+                0,
+                0,
+                0
+        );
+
+        // Use density-independent spacing instead of a fixed pixel value.
+        int padding = (int) (
+                8 * view.getResources()
+                        .getDisplayMetrics()
+                        .density
+        );
+
+        view.setCompoundDrawablePadding(padding);
+
         return row;
     }
-
 }
