@@ -1,6 +1,6 @@
 🔥 Nether Launcher
 
-A custom Android Minecraft launcher based on "MojoLauncher" (https://github.com/MojoLauncher/MojoLauncher).
+A custom Android Minecraft launcher based on "Mojo launcher and pojav launcher" (https://github.com/MojoLauncher/MojoLauncher).
 
 Nether Launcher aims to provide a familiar Minecraft Java Edition launching experience on Android, with a custom Nether-themed design and additional improvements developed for the project.
 
