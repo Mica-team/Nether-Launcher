@@ -25,6 +25,38 @@ jobs:
           submodules: true
 
       # ==========================================
+      # Free up disk space
+      # ==========================================
+      - name: Free up disk space
+        run: |
+          echo "========== DISK SPACE BEFORE =========="
+          df -h
+
+          echo "Removing unnecessary preinstalled software..."
+
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/cmake
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+          echo "Cleaning package cache..."
+          sudo apt-get clean
+
+          echo "Cleaning Gradle caches..."
+          rm -rf ~/.gradle/caches
+          rm -rf ~/.gradle/wrapper/dists
+
+          echo "Cleaning temporary files..."
+          sudo rm -rf /tmp/*
+          sudo rm -rf /var/tmp/*
+
+          echo "========== DISK SPACE AFTER =========="
+          df -h
+
+      # ==========================================
       # Get LTW
       # ==========================================
       - name: Get LTW
@@ -54,6 +86,8 @@ jobs:
 
           echo "Turnip library:"
           ls -lh app_pojavlauncher/turnip/vulkan.freedreno.so
+
+          rm -f /tmp/turnip.zip
 
       # ==========================================
       # Set up Gradle
@@ -103,8 +137,6 @@ jobs:
 
       # ==========================================
       # Build Legacy Zink Plugin
-      #
-      # This is allowed to fail.
       # ==========================================
       - name: Build Legacy Zink Plugin
         continue-on-error: true
