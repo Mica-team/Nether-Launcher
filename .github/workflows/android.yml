@@ -43,6 +43,17 @@ jobs:
           name: mesa-aar
           path: app_pojavlauncher/libs
 
+      - name: Get Turnip
+        run: |
+          mkdir -p app_pojavlauncher/turnip
+          curl -L \
+            "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/turnip_adrenotools.zip" \
+            -o /tmp/turnip.zip
+          unzip -o /tmp/turnip.zip \
+            vulkan.freedreno.so \
+            -d app_pojavlauncher/turnip
+          ls -lh app_pojavlauncher/turnip/vulkan.freedreno.so
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
