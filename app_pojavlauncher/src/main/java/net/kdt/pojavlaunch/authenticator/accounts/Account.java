@@ -8,7 +8,7 @@ import androidx.annotation.Keep;
 
 import com.google.gson.JsonParseException;
 
-import net.kdt.pojavlaunch.*;
+import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.authenticator.AuthType;
 import net.kdt.pojavlaunch.utils.FileUtils;
 import net.kdt.pojavlaunch.utils.JSONUtils;
@@ -17,7 +17,6 @@ import org.apache.commons.io.IOUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 
@@ -36,7 +35,8 @@ public class Account {
 
     private transient Bitmap mFaceCache;
 
-    protected Account() {}
+    protected Account() {
+    }
 
     public void updateSkinFace() {
         /*
@@ -48,7 +48,9 @@ public class Account {
         }
 
         String skinFaceUrlTemplate = authType.skinUrl;
-        if (skinFaceUrlTemplate == null) return;
+        if (skinFaceUrlTemplate == null) {
+            return;
+        }
 
         String skinFaceUrl = String.format(skinFaceUrlTemplate, username);
 
@@ -57,20 +59,39 @@ public class Account {
 
             File skinFile = getSkinFaceFile();
 
-            // Streaming it directly breaks on some devices.
+            /*
+             * Streaming directly can fail on some Android devices,
+             * so download the complete response first.
+             */
             byte[] skinBytes = IOUtils.toByteArray(new URL(skinFaceUrl));
+
             Bitmap skinBitmap =
-                    BitmapFactory.decodeByteArray(skinBytes, 0, skinBytes.length);
+                    BitmapFactory.decodeByteArray(
+                            skinBytes,
+                            0,
+                            skinBytes.length
+                    );
 
-            if (skinBitmap == null) return;
+            if (skinBitmap == null) {
+                Log.w("SkinLoader", "Could not decode downloaded skin");
+                return;
+            }
 
-            Bitmap skinFace = new SkinHeadRenderer().render(100, skinBitmap);
+            Bitmap skinFace =
+                    new SkinHeadRenderer().render(100, skinBitmap);
+
             skinBitmap.recycle();
 
-            if (skinFace == null) return;
+            if (skinFace == null) {
+                Log.w("SkinLoader", "Could not render skin face");
+                return;
+            }
+
+            FileUtils.ensureParentDirectory(skinFile);
 
             try (FileOutputStream fileOutputStream =
                          new FileOutputStream(skinFile)) {
+
                 skinFace.compress(
                         Bitmap.CompressFormat.WEBP,
                         90,
@@ -78,10 +99,24 @@ public class Account {
                 );
             }
 
+            skinFace.recycle();
+
+            /*
+             * Clear the old cached bitmap so the next call loads
+             * the newly generated face.
+             */
+            if (mFaceCache != null) {
+                mFaceCache.recycle();
+                mFaceCache = null;
+            }
+
             Log.i("SkinLoader", "Update skin face success");
 
-        } catch (IOException e) {
-            // Skin refresh limit, no internet connection, etc.
+        } catch (IOException | RuntimeException e) {
+            /*
+             * Network failure, skin refresh limit, invalid image,
+             * etc. should not crash the launcher.
+             */
             Log.w("SkinLoader", "Could not update skin face", e);
         }
     }
@@ -104,7 +139,9 @@ public class Account {
             );
 
             Bitmap skinBitmap =
-                    BitmapFactory.decodeFile(localSkin.getAbsolutePath());
+                    BitmapFactory.decodeFile(
+                            localSkin.getAbsolutePath()
+                    );
 
             if (skinBitmap == null) {
                 Log.w("SkinLoader", "Could not decode local skin");
@@ -116,9 +153,13 @@ public class Account {
 
             skinBitmap.recycle();
 
-            if (skinFace == null) return;
+            if (skinFace == null) {
+                Log.w("SkinLoader", "Could not render local skin face");
+                return;
+            }
 
             File skinFile = getSkinFaceFile();
+            FileUtils.ensureParentDirectory(skinFile);
 
             try (FileOutputStream fileOutputStream =
                          new FileOutputStream(skinFile)) {
@@ -130,10 +171,21 @@ public class Account {
                 );
             }
 
+            skinFace.recycle();
+
+            if (mFaceCache != null) {
+                mFaceCache.recycle();
+                mFaceCache = null;
+            }
+
             Log.i("SkinLoader", "Local skin face updated");
 
         } catch (Exception e) {
-            Log.w("SkinLoader", "Could not update local skin face", e);
+            Log.w(
+                    "SkinLoader",
+                    "Could not update local skin face",
+                    e
+            );
         }
     }
 
@@ -149,9 +201,14 @@ public class Account {
     public Account reload() {
         try {
             Account account =
-                    JSONUtils.readFromFile(mSaveLocation, Account.class);
+                    JSONUtils.readFromFile(
+                            mSaveLocation,
+                            Account.class
+                    );
 
-            if (account == null) return null;
+            if (account == null) {
+                return null;
+            }
 
             account.mSaveLocation = mSaveLocation;
 
@@ -197,7 +254,7 @@ public class Account {
     private File getSkinFaceFile() {
         String profilePart = profileId;
 
-        if (profilePart == null) {
+        if (profilePart == null || profilePart.isEmpty()) {
             profilePart = "local";
         }
 
@@ -210,4 +267,4 @@ public class Account {
                         ".webp"
         );
     }
-                }
+                      }
