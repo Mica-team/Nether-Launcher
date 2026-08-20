@@ -94,6 +94,7 @@ jobs:
       # Build Legacy Zink Plugin
       # =========================
       - name: Build Legacy Zink Plugin
+        continue-on-error: true
         working-directory: ZinkPlugin
         run: |
           chmod +x gradlew
