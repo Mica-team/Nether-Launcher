@@ -36,7 +36,7 @@ public class Account {
 
     private transient Bitmap mFaceCache;
 
-    protected Account() {
+    public Account() {
     }
 
     /**
