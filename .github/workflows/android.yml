@@ -21,6 +21,9 @@ jobs:
         with:
           submodules: true
 
+      # ==========================================
+      # LTW
+      # ==========================================
       - name: Get LTW
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
@@ -31,51 +34,197 @@ jobs:
           name: output-aar
           path: app_pojavlauncher/libs
 
-      - name: Get Mesa
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          github_token: ${{ secrets.MESA_ACTIONS }}
-          repo: MojoLauncher/mesa-unified2
-          workflow: android.yml
-          workflow_conclusion: success
-          branch: mojo/26.2
-          name: mesa-aar
-          path: app_pojavlauncher/libs
-
-      - name: Get Turnip
-        continue-on-error: true
+      # ==========================================
+      # Build Mesa / Freedreno from our fork
+      # ==========================================
+      - name: Install Mesa build dependencies
         run: |
-          echo "Downloading Turnip..."
+          sudo apt update
 
+          sudo apt install -y \
+            meson \
+            ninja-build \
+            python3-mako \
+            python3-pip \
+            flex \
+            bison \
+            pkg-config \
+            libdrm-dev \
+            libexpat1-dev \
+            libelf-dev \
+            libwayland-dev \
+            wayland-protocols \
+            glslang-tools \
+            glslc \
+            patchelf \
+            unzip \
+            curl
+
+      - name: Download Android NDK
+        run: |
+          cd /tmp
+
+          curl -L \
+            "https://dl.google.com/android/repository/android-ndk-r29-linux.zip" \
+            -o android-ndk.zip
+
+          unzip -q android-ndk.zip
+
+          echo "ANDROID_NDK=/tmp/android-ndk-r29" >> "$GITHUB_ENV"
+
+      - name: Clone our Mesa
+        run: |
+          git clone \
+            --depth 1 \
+            --branch mojo/26.2 \
+            https://github.com/Mica-team/mesa.git \
+            mesa
+
+      - name: Configure Mesa for Android ARM64 Freedreno
+        run: |
+          cd mesa
+
+          NDK="$ANDROID_NDK"
+          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
+
+          cat > android-aarch64.txt <<EOF
+          [binaries]
+          ar = '$TOOLCHAIN/bin/llvm-ar'
+          c = '$TOOLCHAIN/bin/aarch64-linux-android34-clang'
+          cpp = '$TOOLCHAIN/bin/aarch64-linux-android34-clang++'
+          c_ld = '$TOOLCHAIN/bin/ld.lld'
+          cpp_ld = '$TOOLCHAIN/bin/ld.lld'
+          strip = '$TOOLCHAIN/bin/llvm-strip'
+          pkg-config = ['env', 'PKG_CONFIG_LIBDIR=', 'pkg-config']
+
+          [host_machine]
+          system = 'android'
+          cpu_family = 'aarch64'
+          cpu = 'armv8'
+          endian = 'little'
+          EOF
+
+          cat > native.txt <<EOF
+          [binaries]
+          c = 'clang'
+          cpp = 'clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          c_ld = 'ld.lld'
+          cpp_ld = 'ld.lld'
+
+          [host_machine]
+          system = 'linux'
+          cpu_family = 'x86_64'
+          cpu = 'x86_64'
+          endian = 'little'
+          EOF
+
+          meson setup build-android-aarch64 \
+            --cross-file android-aarch64.txt \
+            --native-file native.txt \
+            --prefix /usr \
+            --libdir lib \
+            -Dbuildtype=release \
+            -Db_lto=true \
+            -Dstrip=true \
+            -Dplatforms=android \
+            -Dplatform-sdk-version=34 \
+            -Dandroid-stub=true \
+            -Dgallium-drivers=freedreno \
+            -Dvulkan-drivers=freedreno \
+            -Dvulkan-beta=true \
+            -Dfreedreno-kmds=kgsl \
+            -Degl=enabled \
+            -Dgles2=enabled \
+            -Dgles1=disabled \
+            -Dglx=disabled \
+            -Dgbm=disabled \
+            -Dxlib-lease=disabled \
+            -Dllvm=disabled \
+            -Dlibunwind=disabled \
+            -Dvalgrind=disabled \
+            -Dbuild-tests=false
+
+      - name: Build Mesa
+        run: |
+          ninja -C mesa/build-android-aarch64
+
+      - name: Install Mesa
+        run: |
+          rm -rf /tmp/mesa-install
+          mkdir -p /tmp/mesa-install
+
+          DESTDIR=/tmp/mesa-install \
+            meson install -C mesa/build-android-aarch64
+
+      # ==========================================
+      # Put Mesa native libraries into Nether
+      # ==========================================
+      - name: Package Mesa native libraries
+        run: |
           mkdir -p app_pojavlauncher/src/main/jniLibs/arm64-v8a
 
-          curl -fL \
+          echo "=== Mesa installed files ==="
+          find /tmp/mesa-install -type f -o -type l | sort
+
+          echo "=== Copying Mesa libraries ==="
+
+          find /tmp/mesa-install \
+            \( -name "*.so" -o -name "*.so.*" \) \
+            -type f \
+            -exec cp -L {} app_pojavlauncher/src/main/jniLibs/arm64-v8a/ \;
+
+          echo "=== Nether Mesa libraries ==="
+          ls -lh app_pojavlauncher/src/main/jniLibs/arm64-v8a/
+
+          echo "=== Checking libEGL_mesa.so ==="
+
+          if [ -f app_pojavlauncher/src/main/jniLibs/arm64-v8a/libEGL_mesa.so ]; then
+            echo "libEGL_mesa.so FOUND"
+          else
+            echo "ERROR: libEGL_mesa.so was not produced by Mesa"
+            exit 1
+          fi
+
+      # ==========================================
+      # Turnip
+      # ==========================================
+      - name: Get Turnip
+        run: |
+          mkdir -p app_pojavlauncher/turnip
+
+          curl -L \
             "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/turnip_adrenotools.zip" \
             -o /tmp/turnip.zip
 
-          echo "Extracting Turnip..."
-
           unzip -o /tmp/turnip.zip \
             vulkan.freedreno.so \
-            -d app_pojavlauncher/src/main/jniLibs/arm64-v8a
+            -d app_pojavlauncher/turnip
 
-          echo "Turnip library:"
-          ls -lh \
-            app_pojavlauncher/src/main/jniLibs/arm64-v8a/vulkan.freedreno.so
+          echo "=== Turnip ==="
+          ls -lh app_pojavlauncher/turnip/vulkan.freedreno.so
 
-      - name: Verify Turnip
-        continue-on-error: true
+      # ==========================================
+      # Debug what actually went into the project
+      # ==========================================
+      - name: Inspect renderer libraries
         run: |
-          echo "Checking Turnip library..."
+          echo "=== jniLibs/arm64-v8a ==="
+          find app_pojavlauncher/src/main/jniLibs/arm64-v8a \
+            -maxdepth 1 \
+            -type f \
+            -printf "%f\n" | sort
 
-          if [ -f "app_pojavlauncher/src/main/jniLibs/arm64-v8a/vulkan.freedreno.so" ]; then
-            echo "Turnip found successfully."
-            file app_pojavlauncher/src/main/jniLibs/arm64-v8a/vulkan.freedreno.so
-          else
-            echo "Turnip library was not downloaded."
-          fi
+          echo
+          echo "=== Turnip ==="
+          find app_pojavlauncher/turnip \
+            -type f \
+            -printf "%p\n"
 
+      # ==========================================
+      # Gradle
+      # ==========================================
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -84,12 +233,16 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: "17"
 
       - name: Create output directory
-        run: mkdir -p out
+        run: |
+          mkdir -p out
 
+      # ==========================================
+      # APK
+      # ==========================================
       - name: Build Debug APK
         run: |
           gradle :app_pojavlauncher:assembleFullDebug
@@ -106,6 +259,9 @@ jobs:
             app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk \
             out/NetherLauncher-debug-noruntime.apk
 
+      # ==========================================
+      # Checksums
+      # ==========================================
       - name: Generate MD5 checksums
         run: |
           md5sum \
@@ -116,6 +272,9 @@ jobs:
             out/NetherLauncher-debug-noruntime.apk \
             > out/NetherLauncher-debug-noruntime.md5
 
+      # ==========================================
+      # Upload
+      # ==========================================
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
