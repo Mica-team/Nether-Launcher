@@ -44,15 +44,37 @@ jobs:
           path: app_pojavlauncher/libs
 
       - name: Get Turnip
+        continue-on-error: true
         run: |
-          mkdir -p app_pojavlauncher/turnip
-          curl -L \
+          echo "Downloading Turnip..."
+
+          mkdir -p app_pojavlauncher/src/main/jniLibs/arm64-v8a
+
+          curl -fL \
             "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/turnip_adrenotools.zip" \
             -o /tmp/turnip.zip
+
+          echo "Extracting Turnip..."
+
           unzip -o /tmp/turnip.zip \
             vulkan.freedreno.so \
-            -d app_pojavlauncher/turnip
-          ls -lh app_pojavlauncher/turnip/vulkan.freedreno.so
+            -d app_pojavlauncher/src/main/jniLibs/arm64-v8a
+
+          echo "Turnip library:"
+          ls -lh \
+            app_pojavlauncher/src/main/jniLibs/arm64-v8a/vulkan.freedreno.so
+
+      - name: Verify Turnip
+        continue-on-error: true
+        run: |
+          echo "Checking Turnip library..."
+
+          if [ -f "app_pojavlauncher/src/main/jniLibs/arm64-v8a/vulkan.freedreno.so" ]; then
+            echo "Turnip found successfully."
+            file app_pojavlauncher/src/main/jniLibs/arm64-v8a/vulkan.freedreno.so
+          else
+            echo "Turnip library was not downloaded."
+          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -71,17 +93,28 @@ jobs:
       - name: Build Debug APK
         run: |
           gradle :app_pojavlauncher:assembleFullDebug
-          mv app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk out/NetherLauncher-debug-full.apk
+
+          mv \
+            app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk \
+            out/NetherLauncher-debug-full.apk
 
       - name: Build Debug APK (No Runtime)
         run: |
           gradle :app_pojavlauncher:assembleNoruntimeDebug
-          mv app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk out/NetherLauncher-debug-noruntime.apk
+
+          mv \
+            app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk \
+            out/NetherLauncher-debug-noruntime.apk
 
       - name: Generate MD5 checksums
         run: |
-          md5sum out/NetherLauncher-debug-full.apk > out/NetherLauncher-debug-full.md5
-          md5sum out/NetherLauncher-debug-noruntime.apk > out/NetherLauncher-debug-noruntime.md5
+          md5sum \
+            out/NetherLauncher-debug-full.apk \
+            > out/NetherLauncher-debug-full.md5
+
+          md5sum \
+            out/NetherLauncher-debug-noruntime.apk \
+            > out/NetherLauncher-debug-noruntime.md5
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -94,5 +127,3 @@ jobs:
         with:
           name: NetherLauncher-debug-noruntime
           path: out/NetherLauncher-debug-noruntime.apk
-
-      
