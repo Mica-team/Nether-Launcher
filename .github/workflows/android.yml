@@ -1,4 +1,4 @@
-name: Nether Launcher Android CI
+name: Nether Launcher Test Build
 
 on:
   push:
@@ -8,273 +8,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     env:
       UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_NEXT_KEYSTORE_PASSWORD }}
       MOJOPUB_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_NEXT_KEYSTORE_PASSWORD }}
       CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
-      # CHANGE THIS to your own fork if it has a different owner/name.
-      MESA_REPO: https://github.com/Mica-team/mesa.git
-
     steps:
-
-      # ============================================================
-      # CHECKOUT NETHER LAUNCHER
-      # ============================================================
-      - name: Checkout Nether Launcher
+      - name: Checkout
         uses: actions/checkout@v5
         with:
           submodules: true
 
-
-      # ============================================================
-      # BASIC ANDROID / MESA DEPENDENCIES
-      # ============================================================
-      - name: Install build dependencies
-        run: |
-          sudo apt update
-
-          sudo apt install -y \
-            python3 \
-            python3-pip \
-            python3-setuptools \
-            python3-wheel \
-            ninja-build \
-            patchelf \
-            unzip \
-            curl \
-            git \
-            flex \
-            bison \
-            zip \
-            pkg-config \
-            glslang-tools \
-            libdrm-dev \
-            libexpat1-dev \
-            libudev-dev \
-            libwayland-dev \
-            wayland-protocols
-
-          echo "Installed dependencies"
-
-
-      # ============================================================
-      # MODERN MESON
-      #
-      # Ubuntu's repository can provide Meson 0.61.x.
-      # Mesa requires >= 1.1.0.
-      # ============================================================
-      - name: Install modern Meson
-        run: |
-          python3 -m pip install --user --upgrade \
-            "meson>=1.1.0" \
-            mako
-
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-          export PATH="$HOME/.local/bin:$PATH"
-
-          echo "Meson:"
-          meson --version
-
-          echo "Ninja:"
-          ninja --version
-
-          python3 -c "import mako; print('Mako OK')"
-
-
-      # ============================================================
-      # ANDROID NDK R29
-      # ============================================================
-      - name: Install Android NDK r29
-        run: |
-          mkdir -p "$HOME/android-ndk"
-
-          curl -L \
-            https://dl.google.com/android/repository/android-ndk-r29-linux.zip \
-            -o "$HOME/android-ndk/ndk.zip"
-
-          unzip -q \
-            "$HOME/android-ndk/ndk.zip" \
-            -d "$HOME/android-ndk"
-
-          echo "NDK installed:"
-          ls "$HOME/android-ndk/android-ndk-r29"
-
-
-      # ============================================================
-      # BUILD MESA
-      #
-      # Mesa provides:
-      #   - EGL
-      #   - OpenGL/GLES userspace
-      #   - Freedreno Gallium
-      #   - Freedreno Vulkan
-      #
-      # This is NOT just a Zink build.
-      # ============================================================
-      - name: Clone Mesa fork
-        run: |
-          git clone \
-            --depth 1 \
-            "$MESA_REPO" \
-            mesa
-
-          cd mesa
-
-          echo "Mesa commit:"
-          git rev-parse HEAD
-
-          echo "Mesa branch:"
-          git branch --show-current
-
-
-      - name: Configure Mesa for Android ARM64
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-
-          cd mesa
-
-          NDK="$HOME/android-ndk/android-ndk-r29"
-          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
-
-          cat > android-aarch64.txt <<EOF
-          [binaries]
-          ar = '$TOOLCHAIN/bin/llvm-ar'
-          c = '$TOOLCHAIN/bin/aarch64-linux-android34-clang'
-          cpp = '$TOOLCHAIN/bin/aarch64-linux-android34-clang++'
-          c_ld = '$TOOLCHAIN/bin/ld.lld'
-          cpp_ld = '$TOOLCHAIN/bin/ld.lld'
-          strip = '$TOOLCHAIN/bin/llvm-strip'
-          pkg-config = ['env', 'PKG_CONFIG_LIBDIR=$TOOLCHAIN/lib/pkgconfig', '/usr/bin/pkg-config']
-
-          [host_machine]
-          system = 'android'
-          cpu_family = 'aarch64'
-          cpu = 'armv8'
-          endian = 'little'
-          EOF
-
-          cat > native.txt <<EOF
-          [binaries]
-          c = 'clang'
-          cpp = 'clang++'
-          ar = 'llvm-ar'
-          strip = 'llvm-strip'
-          c_ld = 'ld.lld'
-          cpp_ld = 'ld.lld'
-
-          [host_machine]
-          system = 'linux'
-          cpu_family = 'x86_64'
-          cpu = 'x86_64'
-          endian = 'little'
-          EOF
-
-          echo "Configuring Mesa..."
-
-          meson setup build-android-aarch64 \
-            --cross-file android-aarch64.txt \
-            --native-file native.txt \
-            --prefix "$PWD/install" \
-            --buildtype release \
-            -Db_lto=true \
-            -Db_lto_mode=thin \
-            -Dstrip=true \
-            -Dplatforms=android \
-            -Dplatform-sdk-version=34 \
-            -Dandroid-stub=true \
-            -Dvideo-codecs= \
-            -Dgallium-drivers=freedreno \
-            -Dvulkan-drivers=freedreno \
-            -Dvulkan-beta=true \
-            -Dfreedreno-kmds=kgsl \
-            -Degl=enabled \
-            -Dgles2=enabled
-
-          echo "Mesa configuration complete."
-
-
-      - name: Build Mesa
-        run: |
-          cd mesa
-
-          ninja -C build-android-aarch64 install
-
-          echo "Mesa build finished."
-
-          echo
-          echo "Built libraries:"
-          find install -type f -name "*.so" -print
-
-
-      # ============================================================
-      # VERIFY MESA
-      # ============================================================
-      - name: Verify Mesa libraries
-        run: |
-          echo "Searching for Mesa libraries..."
-
-          find mesa/install -type f -name "*.so" -print
-
-          echo
-          echo "Checking Freedreno Vulkan..."
-
-          if find mesa/install \
-              -name "libvulkan_freedreno.so" \
-              -print -quit | grep -q .; then
-            echo "OK: libvulkan_freedreno.so"
-          else
-            echo "ERROR: libvulkan_freedreno.so was not built."
-            exit 1
-          fi
-
-          echo
-          echo "Checking Mesa EGL..."
-
-          if find mesa/install \
-              -name "libEGL_mesa.so" \
-              -print -quit | grep -q .; then
-            echo "OK: libEGL_mesa.so"
-          else
-            echo "ERROR: libEGL_mesa.so was not built."
-            exit 1
-          fi
-
-
-      # ============================================================
-      # INSTALL MESA LIBRARIES INTO NETHER
-      #
-      # Your RendererCompatUtil checks:
-      #
-      #   Tools.NATIVE_LIB_DIR/libEGL_mesa.so
-      #
-      # Therefore the Mesa library must actually end up inside
-      # the APK's arm64-v8a native library directory.
-      # ============================================================
-      - name: Copy Mesa libraries into Nether
-        run: |
-          TARGET="app_pojavlauncher/src/main/jniLibs/arm64-v8a"
-
-          mkdir -p "$TARGET"
-
-          echo "Copying Mesa libraries..."
-
-          find mesa/install -type f -name "*.so" -print0 |
-          while IFS= read -r -d '' lib; do
-            cp "$lib" "$TARGET/"
-          done
-
-          echo
-          echo "Native libraries now present:"
-          ls -lh "$TARGET"
-
-
-      # ============================================================
-      # GET LTW
-      # ============================================================
+      # =========================
+      # LTW
+      # =========================
       - name: Get LTW
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
@@ -285,13 +34,9 @@ jobs:
           name: output-aar
           path: app_pojavlauncher/libs
 
-
-      # ============================================================
-      # GET TURNIP
-      #
-      # This is the same Turnip source/download approach you already
-      # confirmed works.
-      # ============================================================
+      # =========================
+      # Turnip / Freedreno Vulkan
+      # =========================
       - name: Get Turnip
         run: |
           mkdir -p app_pojavlauncher/turnip
@@ -304,109 +49,78 @@ jobs:
             vulkan.freedreno.so \
             -d app_pojavlauncher/turnip
 
-          echo
-          echo "Turnip:"
           ls -lh app_pojavlauncher/turnip/vulkan.freedreno.so
 
-
-      # ============================================================
-      # SHOW EVERYTHING BEFORE GRADLE
-      # ============================================================
-      - name: Verify renderer files
-        run: |
-          echo "=== jniLibs ==="
-          find app_pojavlauncher/src/main/jniLibs \
-            -type f \
-            -name "*.so" \
-            -print 2>/dev/null || true
-
-          echo
-          echo "=== libs ==="
-          find app_pojavlauncher/libs \
-            -maxdepth 2 \
-            -type f \
-            -print 2>/dev/null || true
-
-          echo
-          echo "=== Turnip ==="
-          find app_pojavlauncher/turnip \
-            -type f \
-            -print 2>/dev/null || true
-
-
-      # ============================================================
-      # GRADLE
-      # ============================================================
+      # =========================
+      # Gradle
+      # =========================
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.14.3"
 
-
-      # ============================================================
-      # JAVA 17
-      # ============================================================
+      # =========================
+      # Java 17 - Nether Launcher
+      # =========================
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
-
-      # ============================================================
-      # OUTPUT DIRECTORY
-      # ============================================================
       - name: Create output directory
-        run: |
-          mkdir -p out
+        run: mkdir -p out
 
-
-      # ============================================================
-      # FULL DEBUG APK
-      # ============================================================
-      - name: Build Full Debug APK
+      # =========================
+      # Build Nether Launcher
+      # =========================
+      - name: Build Debug APK
         run: |
           gradle :app_pojavlauncher:assembleFullDebug
 
-          cp \
+          mv \
             app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk \
             out/NetherLauncher-debug-full.apk
 
-
-      # ============================================================
-      # NO RUNTIME DEBUG APK
-      # ============================================================
-      - name: Build No Runtime Debug APK
+      - name: Build Debug APK (No Runtime)
         run: |
           gradle :app_pojavlauncher:assembleNoruntimeDebug
 
-          cp \
+          mv \
             app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk \
             out/NetherLauncher-debug-noruntime.apk
 
+      # =========================
+      # Build Legacy Zink Plugin
+      # =========================
+      - name: Build Legacy Zink Plugin
+        working-directory: ZinkPlugin
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
-      # ============================================================
-      # CHECKSUMS
-      # ============================================================
+          cp \
+            app/build/outputs/apk/debug/app-debug.apk \
+            ../out/NetherLauncher-ZinkPlugin-debug.apk
+
+      # =========================
+      # MD5
+      # =========================
       - name: Generate MD5 checksums
         run: |
-          md5sum \
-            out/NetherLauncher-debug-full.apk \
+          md5sum out/NetherLauncher-debug-full.apk \
             > out/NetherLauncher-debug-full.md5
 
-          md5sum \
-            out/NetherLauncher-debug-noruntime.apk \
+          md5sum out/NetherLauncher-debug-noruntime.apk \
             > out/NetherLauncher-debug-noruntime.md5
 
-          echo
-          echo "Final outputs:"
-          ls -lh out/
+          md5sum out/NetherLauncher-ZinkPlugin-debug.apk \
+            > out/NetherLauncher-ZinkPlugin-debug.md5
 
-
-      # ============================================================
-      # UPLOAD FULL APK
-      # ============================================================
-      - name: Upload Full Debug APK
+      # =========================
+      # Upload Full APK
+      # =========================
+      - name: Upload Nether Launcher
         uses: actions/upload-artifact@v4
         with:
           name: NetherLauncher-debug-full
@@ -414,11 +128,10 @@ jobs:
             out/NetherLauncher-debug-full.apk
             out/NetherLauncher-debug-full.md5
 
-
-      # ============================================================
-      # UPLOAD NO-RUNTIME APK
-      # ============================================================
-      - name: Upload No Runtime Debug APK
+      # =========================
+      # Upload No Runtime APK
+      # =========================
+      - name: Upload Nether Launcher (No Runtime)
         uses: actions/upload-artifact@v4
         with:
           name: NetherLauncher-debug-noruntime
@@ -426,25 +139,13 @@ jobs:
             out/NetherLauncher-debug-noruntime.apk
             out/NetherLauncher-debug-noruntime.md5
 
-
-      # ============================================================
-      # UPLOAD MESA DEBUG OUTPUT
-      # ============================================================
-      - name: Upload Mesa libraries
+      # =========================
+      # Upload Legacy Zink Plugin
+      # =========================
+      - name: Upload Legacy Zink Plugin
         uses: actions/upload-artifact@v4
         with:
-          name: NetherLauncher-mesa-arm64
+          name: NetherLauncher-Legacy-Zink
           path: |
-            mesa/install/**/*.so
-            mesa/build-android-aarch64/meson-logs/meson-log.txt
-
-
-      # ============================================================
-      # UPLOAD TURNIP
-      # ============================================================
-      - name: Upload Turnip
-        uses: actions/upload-artifact@v4
-        with:
-          name: NetherLauncher-turnip
-          path: |
-            app_pojavlauncher/turnip/vulkan.freedreno.so
+            out/NetherLauncher-ZinkPlugin-debug.apk
+            out/NetherLauncher-ZinkPlugin-debug.md5
