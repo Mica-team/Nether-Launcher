@@ -22,6 +22,7 @@ import java.net.URL;
 
 @Keep
 public class Account {
+
     public transient File mSaveLocation;
 
     public String accessToken = "0";
@@ -38,32 +39,54 @@ public class Account {
     protected Account() {
     }
 
+    /**
+     * Updates both:
+     *
+     * 1. The full skin cache.
+     * 2. The small launcher face cache.
+     *
+     * For local accounts the PNG in:
+     *
+     * <launcher storage>/skin/
+     *
+     * is used.
+     */
     public void updateSkinFace() {
-        /*
-         * Local accounts use the PNG from the launcher skin directory.
-         */
+
         if (authType == AuthType.LOCAL) {
-            updateLocalSkinFace();
+            updateLocalSkin();
             return;
         }
 
-        String skinFaceUrlTemplate = authType.skinUrl;
-        if (skinFaceUrlTemplate == null) {
+        String skinUrlTemplate = authType.skinUrl;
+
+        if (skinUrlTemplate == null || username == null) {
             return;
         }
 
-        String skinFaceUrl = String.format(skinFaceUrlTemplate, username);
+        String skinUrl = String.format(
+                skinUrlTemplate,
+                username
+        );
 
         try {
-            Log.i("SkinLoader", "Updating skin face...");
+            Log.i(
+                    "SkinLoader",
+                    "Downloading full skin..."
+            );
 
-            File skinFile = getSkinFaceFile();
+            byte[] skinBytes =
+                    IOUtils.toByteArray(
+                            new URL(skinUrl)
+                    );
 
-            /*
-             * Streaming directly can fail on some Android devices,
-             * so download the complete response first.
-             */
-            byte[] skinBytes = IOUtils.toByteArray(new URL(skinFaceUrl));
+            if (skinBytes == null || skinBytes.length == 0) {
+                Log.w(
+                        "SkinLoader",
+                        "Downloaded skin is empty"
+                );
+                return;
+            }
 
             Bitmap skinBitmap =
                     BitmapFactory.decodeByteArray(
@@ -73,69 +96,106 @@ public class Account {
                     );
 
             if (skinBitmap == null) {
-                Log.w("SkinLoader", "Could not decode downloaded skin");
+                Log.w(
+                        "SkinLoader",
+                        "Could not decode downloaded skin"
+                );
                 return;
             }
 
+            /*
+             * Save the COMPLETE skin first.
+             *
+             * Minecraft needs the complete texture,
+             * not only the face.
+             */
+            saveFullSkin(skinBytes);
+
+            /*
+             * Generate the launcher face.
+             */
             Bitmap skinFace =
-                    new SkinHeadRenderer().render(100, skinBitmap);
+                    new SkinHeadRenderer().render(
+                            100,
+                            skinBitmap
+                    );
 
             skinBitmap.recycle();
 
             if (skinFace == null) {
-                Log.w("SkinLoader", "Could not render skin face");
+                Log.w(
+                        "SkinLoader",
+                        "Could not render skin face"
+                );
                 return;
             }
 
-            FileUtils.ensureParentDirectory(skinFile);
+            File skinFaceFile =
+                    getSkinFaceFile();
 
-            try (FileOutputStream fileOutputStream =
-                         new FileOutputStream(skinFile)) {
+            FileUtils.ensureParentDirectory(
+                    skinFaceFile
+            );
 
+            try (
+                    FileOutputStream output =
+                            new FileOutputStream(
+                                    skinFaceFile
+                            )
+            ) {
                 skinFace.compress(
                         Bitmap.CompressFormat.WEBP,
                         90,
-                        fileOutputStream
+                        output
                 );
             }
 
             skinFace.recycle();
 
-            /*
-             * Clear the old cached bitmap so the next call loads
-             * the newly generated face.
-             */
-            if (mFaceCache != null) {
-                mFaceCache.recycle();
-                mFaceCache = null;
-            }
+            clearFaceCache();
 
-            Log.i("SkinLoader", "Update skin face success");
+            Log.i(
+                    "SkinLoader",
+                    "Skin and face cache updated"
+            );
 
         } catch (IOException | RuntimeException e) {
+
             /*
-             * Network failure, skin refresh limit, invalid image,
-             * etc. should not crash the launcher.
+             * IMPORTANT:
+             * Network failure must NEVER prevent
+             * an offline/local account from being used.
              */
-            Log.w("SkinLoader", "Could not update skin face", e);
+            Log.w(
+                    "SkinLoader",
+                    "Could not download skin; using cached skin if available",
+                    e
+            );
         }
     }
 
     /**
-     * Creates the cached face for a local PNG skin.
+     * Loads the local PNG skin.
      */
-    private void updateLocalSkinFace() {
-        File localSkin = LocalSkinManager.getLocalSkin();
+    private void updateLocalSkin() {
+
+        File localSkin =
+                LocalSkinManager.getLocalSkin();
 
         if (localSkin == null) {
-            Log.i("SkinLoader", "No local PNG skin found");
+            Log.i(
+                    "SkinLoader",
+                    "No local PNG skin found"
+            );
             return;
         }
 
         try {
+
             Log.i(
                     "SkinLoader",
-                    "Loading local skin: " + localSkin.getName()
+                    "Loading local skin: " +
+                            localSkin.getAbsolutePath()
             );
 
             Bitmap skinBitmap =
@@ -144,62 +204,218 @@ public class Account {
                     );
 
             if (skinBitmap == null) {
-                Log.w("SkinLoader", "Could not decode local skin");
+                Log.w(
+                        "SkinLoader",
+                        "Could not decode local skin"
+                );
                 return;
             }
 
+            /*
+             * Copy the original PNG into our
+             * stable cache location.
+             */
+            copyLocalSkinToCache(
+                    localSkin
+            );
+
             Bitmap skinFace =
-                    new SkinHeadRenderer().render(100, skinBitmap);
+                    new SkinHeadRenderer().render(
+                            100,
+                            skinBitmap
+                    );
 
             skinBitmap.recycle();
 
             if (skinFace == null) {
-                Log.w("SkinLoader", "Could not render local skin face");
                 return;
             }
 
-            File skinFile = getSkinFaceFile();
-            FileUtils.ensureParentDirectory(skinFile);
+            File skinFaceFile =
+                    getSkinFaceFile();
 
-            try (FileOutputStream fileOutputStream =
-                         new FileOutputStream(skinFile)) {
+            FileUtils.ensureParentDirectory(
+                    skinFaceFile
+            );
 
+            try (
+                    FileOutputStream output =
+                            new FileOutputStream(
+                                    skinFaceFile
+                            )
+            ) {
                 skinFace.compress(
                         Bitmap.CompressFormat.WEBP,
                         90,
-                        fileOutputStream
+                        output
                 );
             }
 
             skinFace.recycle();
 
-            if (mFaceCache != null) {
-                mFaceCache.recycle();
-                mFaceCache = null;
-            }
+            clearFaceCache();
 
-            Log.i("SkinLoader", "Local skin face updated");
+            Log.i(
+                    "SkinLoader",
+                    "Local skin cache updated"
+            );
 
         } catch (Exception e) {
+
             Log.w(
                     "SkinLoader",
-                    "Could not update local skin face",
+                    "Could not update local skin",
+                    e
+            );
+        }
+    }
+
+    /**
+     * Saves the complete downloaded PNG.
+     */
+    private void saveFullSkin(
+            byte[] skinBytes
+    ) throws IOException {
+
+        File skinFile =
+                getFullSkinFile();
+
+        FileUtils.ensureParentDirectory(
+                skinFile
+        );
+
+        try (
+                FileOutputStream output =
+                        new FileOutputStream(
+                                skinFile
+                        )
+        ) {
+            output.write(skinBytes);
+            output.flush();
+        }
+
+        Log.i(
+                "SkinLoader",
+                "Full skin saved: " +
+                        skinFile.getAbsolutePath()
+        );
+    }
+
+    /**
+     * Copies the user's local PNG into
+     * the cache used by GameRunner.
+     */
+    private void copyLocalSkinToCache(
+            File source
+    ) throws IOException {
+
+        byte[] bytes =
+                IOUtils.toByteArray(
+                        new java.io.FileInputStream(
+                                source
+                        )
+                );
+
+        saveFullSkin(bytes);
+    }
+
+    /**
+     * Returns the complete cached Minecraft skin.
+     */
+    public File getFullSkinFile() {
+
+        String profilePart =
+                profileId;
+
+        if (
+                profilePart == null ||
+                profilePart.isEmpty()
+        ) {
+            profilePart = "local";
+        }
+
+        return new File(
+                Tools.DIR_CACHE,
+                "skin-" +
+                        profilePart +
+                        "-" +
+                        authType.name() +
+                        ".png"
+        );
+    }
+
+    /**
+     * Returns true if a complete skin is already cached.
+     */
+    public boolean hasCachedSkin() {
+
+        File file =
+                getFullSkinFile();
+
+        return file.exists()
+                && file.isFile()
+                && file.length() > 0;
+    }
+
+    /**
+     * Makes sure a skin is available.
+     *
+     * Online accounts try to update first.
+     * If that fails, the old cached skin remains usable.
+     */
+    public void ensureSkinAvailable() {
+
+        try {
+
+            if (authType == AuthType.LOCAL) {
+
+                if (LocalSkinManager.hasLocalSkin()) {
+                    updateLocalSkin();
+                }
+
+                return;
+            }
+
+            /*
+             * Try to download a fresh copy.
+             *
+             * If there is no internet this simply
+             * fails safely and the old cache remains.
+             */
+            updateSkinFace();
+
+        } catch (Throwable e) {
+
+            Log.w(
+                    "SkinLoader",
+                    "Skin update failed",
                     e
             );
         }
     }
 
     public boolean isLocal() {
-        return accessToken.equals("0");
+        return accessToken == null
+                || accessToken.equals("0");
     }
 
-    public void save() throws IOException {
-        FileUtils.ensureParentDirectory(mSaveLocation);
-        JSONUtils.writeToFile(mSaveLocation, this);
+    public void save()
+            throws IOException {
+
+        FileUtils.ensureParentDirectory(
+                mSaveLocation
+        );
+
+        JSONUtils.writeToFile(
+                mSaveLocation,
+                this
+        );
     }
 
     public Account reload() {
+
         try {
+
             Account account =
                     JSONUtils.readFromFile(
                             mSaveLocation,
@@ -210,31 +426,64 @@ public class Account {
                 return null;
             }
 
-            account.mSaveLocation = mSaveLocation;
+            account.mSaveLocation =
+                    mSaveLocation;
 
             return account;
 
-        } catch (IOException | JsonParseException e) {
+        } catch (
+                IOException |
+                JsonParseException e
+        ) {
             return null;
         }
     }
 
+    /**
+     * Returns the launcher avatar.
+     */
     public Bitmap getSkinFace() {
+
+        /*
+         * Local accounts need a local skin.
+         */
         if (authType == AuthType.LOCAL) {
-            File localSkin = LocalSkinManager.getLocalSkin();
+
+            File localSkin =
+                    LocalSkinManager.getLocalSkin();
 
             if (localSkin == null) {
                 return null;
             }
+
+            /*
+             * Make sure the local full skin
+             * and face cache exist.
+             */
+            if (!getFullSkinFile().exists()) {
+                updateLocalSkin();
+            }
         }
 
-        File skinFaceFile = getSkinFaceFile();
+        File skinFaceFile =
+                getSkinFaceFile();
 
         /*
-         * Generate the cached face if it doesn't exist.
+         * Try to create the face if missing.
          */
         if (!skinFaceFile.exists()) {
+
             updateSkinFace();
+        }
+
+        /*
+         * If online downloading failed but
+         * the full skin exists, generate the
+         * face from the cached full skin.
+         */
+        if (!skinFaceFile.exists()) {
+
+            generateFaceFromCachedSkin();
         }
 
         if (!skinFaceFile.exists()) {
@@ -242,6 +491,7 @@ public class Account {
         }
 
         if (mFaceCache == null) {
+
             mFaceCache =
                     BitmapFactory.decodeFile(
                             skinFaceFile.getAbsolutePath()
@@ -251,10 +501,95 @@ public class Account {
         return mFaceCache;
     }
 
-    private File getSkinFaceFile() {
-        String profilePart = profileId;
+    /**
+     * Generates the launcher face from the
+     * cached complete skin.
+     */
+    private void generateFaceFromCachedSkin() {
 
-        if (profilePart == null || profilePart.isEmpty()) {
+        File fullSkin =
+                getFullSkinFile();
+
+        if (
+                !fullSkin.exists() ||
+                fullSkin.length() == 0
+        ) {
+            return;
+        }
+
+        try {
+
+            Bitmap bitmap =
+                    BitmapFactory.decodeFile(
+                            fullSkin.getAbsolutePath()
+                    );
+
+            if (bitmap == null) {
+                return;
+            }
+
+            Bitmap face =
+                    new SkinHeadRenderer().render(
+                            100,
+                            bitmap
+                    );
+
+            bitmap.recycle();
+
+            if (face == null) {
+                return;
+            }
+
+            File faceFile =
+                    getSkinFaceFile();
+
+            FileUtils.ensureParentDirectory(
+                    faceFile
+            );
+
+            try (
+                    FileOutputStream output =
+                            new FileOutputStream(
+                                    faceFile
+                            )
+            ) {
+                face.compress(
+                        Bitmap.CompressFormat.WEBP,
+                        90,
+                        output
+                );
+            }
+
+            face.recycle();
+
+        } catch (Exception e) {
+
+            Log.w(
+                    "SkinLoader",
+                    "Could not generate cached face",
+                    e
+            );
+        }
+    }
+
+    private void clearFaceCache() {
+
+        if (mFaceCache != null) {
+
+            mFaceCache.recycle();
+            mFaceCache = null;
+        }
+    }
+
+    private File getSkinFaceFile() {
+
+        String profilePart =
+                profileId;
+
+        if (
+                profilePart == null ||
+                profilePart.isEmpty()
+        ) {
             profilePart = "local";
         }
 
@@ -267,4 +602,4 @@ public class Account {
                         ".webp"
         );
     }
-                      }
+                }
