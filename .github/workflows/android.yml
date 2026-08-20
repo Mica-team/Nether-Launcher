@@ -173,3 +173,64 @@ jobs:
           path: |
             mesa/install/**/*.so
             mesa/build-android-aarch64/meson-logs/meson-log.txt
+
+                  # ==========================================
+      # Build Full Debug APK
+      # ==========================================
+      - name: Build Full Debug APK
+        run: |
+          gradle :app_pojavlauncher:assembleFullDebug
+
+          mkdir -p out
+
+          cp \
+            app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk \
+            out/NetherLauncher-debug-full.apk
+
+      # ==========================================
+      # Build No Runtime Debug APK
+      # ==========================================
+      - name: Build No Runtime Debug APK
+        run: |
+          gradle :app_pojavlauncher:assembleNoruntimeDebug
+
+          mkdir -p out
+
+          cp \
+            app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk \
+            out/NetherLauncher-debug-noruntime.apk
+
+      # ==========================================
+      # Generate checksums
+      # ==========================================
+      - name: Generate MD5 checksums
+        run: |
+          md5sum out/NetherLauncher-debug-full.apk \
+            > out/NetherLauncher-debug-full.md5
+
+          md5sum out/NetherLauncher-debug-noruntime.apk \
+            > out/NetherLauncher-debug-noruntime.md5
+
+          ls -lh out/
+
+      # ==========================================
+      # Upload Full APK
+      # ==========================================
+      - name: Upload Full Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetherLauncher-debug-full
+          path: |
+            out/NetherLauncher-debug-full.apk
+            out/NetherLauncher-debug-full.md5
+
+      # ==========================================
+      # Upload No Runtime APK
+      # ==========================================
+      - name: Upload No Runtime Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetherLauncher-debug-noruntime
+          path: |
+            out/NetherLauncher-debug-noruntime.apk
+            out/NetherLauncher-debug-noruntime.md5
