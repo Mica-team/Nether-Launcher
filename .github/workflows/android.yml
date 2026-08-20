@@ -39,26 +39,25 @@ jobs:
       # ==========================================
       - name: Install Mesa build dependencies
         run: |
-          sudo apt update
+         sudo apt update
 
-          sudo apt install -y \
-            meson \
-            ninja-build \
-            python3-mako \
-            python3-pip \
-            flex \
-            bison \
-            pkg-config \
-            libdrm-dev \
-            libexpat1-dev \
-            libelf-dev \
-            libwayland-dev \
-            wayland-protocols \
-            glslang-tools \
-            glslc \
-            patchelf \
-            unzip \
-            curl
+         sudo apt install -y \
+         meson \
+         ninja-build \
+         python3-mako \
+         python3-pip \
+         flex \
+         bison \
+         pkg-config \
+         libdrm-dev \
+         libexpat1-dev \
+         libelf-dev \
+         libwayland-dev \
+         wayland-protocols \
+         glslang-tools \
+         patchelf \
+         unzip \
+         curl
 
       - name: Download Android NDK
         run: |
