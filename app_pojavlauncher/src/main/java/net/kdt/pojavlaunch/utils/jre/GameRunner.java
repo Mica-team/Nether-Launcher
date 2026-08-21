@@ -707,11 +707,9 @@ public class GameRunner {
                         + launchArgs
         );
 
-        try {
+                try {
 
-            JavaRunner.nativeSetupExit(
-                    activity
-            );
+            JavaRunner.nativeSetupExit(activity);
 
             JavaRunner.startJvm(
                     runtime,
@@ -722,25 +720,27 @@ public class GameRunner {
             );
 
         } catch (VMLoadException e) {
-    LifecycleAwareAlertDialog.DialogCreator dialogCreator =
-            (dialog, builder) ->
-                    builder.setMessage(e.toString(activity))
-                            .setPositiveButton(
-                                    android.R.string.ok,
-                                    (d, w) -> {}
-                            );
 
-    if (LifecycleAwareAlertDialog.haltOnDialog(
-            activity.getLifecycle(),
-            activity,
-            dialogCreator
-    )) {
-        return;
+            LifecycleAwareAlertDialog.DialogCreator dialogCreator =
+                    (dialog, builder) ->
+                            builder.setMessage(e.toString(activity))
+                                    .setPositiveButton(
+                                            android.R.string.ok,
+                                            (d, w) -> {
+                                            }
+                                    );
+
+            if (LifecycleAwareAlertDialog.haltOnDialog(
+                    activity.getLifecycle(),
+                    activity,
+                    dialogCreator
+            )) {
+                return;
+            }
+        }
+
+        Tools.restartLauncherActivity(activity);
+        Tools.fullyExit();
     }
-}
-
-Tools.restartLauncherActivity(activity);
-Tools.fullyExit();
-}
 
     private static void disableSplash(File dir) {
