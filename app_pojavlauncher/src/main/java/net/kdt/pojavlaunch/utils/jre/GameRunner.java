@@ -45,35 +45,15 @@ public class GameRunner {
      * is installed.
      */
     private static boolean hasSodium(File gameDir) {
-
-        File modsDir =
-                new File(gameDir, "mods");
-
-        File[] mods =
-                modsDir.listFiles(
-                        file ->
-                                file.isFile()
-                                        && file.getName()
-                                        .endsWith(".jar")
-                );
-
-        if (mods == null) {
-            return false;
+        File modsDir = new File(gameDir, "mods");
+        File[] mods = modsDir.listFiles(file -> file.isFile() && file.getName().endsWith(".jar"));
+        if(mods == null) return false;
+        for(File file : mods) {
+            String name = file.getName();
+            if(name.contains("sodium") ||
+                    name.contains("embeddium") ||
+                    name.contains("rubidium")) return true;
         }
-
-        for (File file : mods) {
-
-            String name =
-                    file.getName().toLowerCase();
-
-            if (name.contains("sodium")
-                    || name.contains("embeddium")
-                    || name.contains("rubidium")) {
-
-                return true;
-            }
-        }
-
         return false;
     }
 
@@ -761,6 +741,7 @@ public class GameRunner {
 
 Tools.restartLauncherActivity(activity);
 Tools.fullyExit();
-            }
+
+}
 
     private static void disableSplash(File dir) {
