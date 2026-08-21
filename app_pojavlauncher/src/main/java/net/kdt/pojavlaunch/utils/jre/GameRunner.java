@@ -742,7 +742,25 @@ public class GameRunner {
             );
 
         } catch (VMLoadException e) {
+    LifecycleAwareAlertDialog.DialogCreator dialogCreator =
+            (dialog, builder) ->
+                    builder.setMessage(e.toString(activity))
+                            .setPositiveButton(
+                                    android.R.string.ok,
+                                    (d, w) -> {}
+                            );
 
-            LifecycleAwareAlertDialog.DialogCreator
-                    dialogCreator =
-                    (dialo
+    if (LifecycleAwareAlertDialog.haltOnDialog(
+            activity.getLifecycle(),
+            activity,
+            dialogCreator
+    )) {
+        return;
+    }
+}
+
+Tools.restartLauncherActivity(activity);
+Tools.fullyExit();
+            }
+
+    private static void disableSplash(File dir) {
