@@ -741,7 +741,6 @@ public class GameRunner {
 
 Tools.restartLauncherActivity(activity);
 Tools.fullyExit();
-
 }
 
     private static void disableSplash(File dir) {
