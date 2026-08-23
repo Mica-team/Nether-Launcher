@@ -9,47 +9,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     env:
       UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_NEXT_KEYSTORE_PASSWORD }}
       MOJOPUB_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_NEXT_KEYSTORE_PASSWORD }}
       CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
     steps:
-
-      # ==========================================
-      # Checkout Nether Launcher
-      # ==========================================
       - name: Checkout
         uses: actions/checkout@v5
         with:
           submodules: true
 
-      # ==========================================
-      # Free up disk space
-      # ==========================================
       - name: Free up disk space
         run: |
-          echo "========== DISK SPACE BEFORE =========="
-          df -h
-
           sudo apt-get clean
+          rm -rf ~/.gradle/caches ~/.gradle/wrapper/dists
+          sudo rm -rf /usr/local/lib/android/sdk/ndk /usr/local/lib/android/sdk/cmake
+          sudo rm -rf /usr/share/dotnet /usr/local/share/powershell /opt/ghc
 
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/wrapper/dists
-
-          sudo rm -rf /usr/local/lib/android/sdk/ndk
-          sudo rm -rf /usr/local/lib/android/sdk/cmake
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /opt/ghc
-
-          echo "========== DISK SPACE AFTER =========="
-          df -h
-
-      # ==========================================
-      # Get LTW
-      # ==========================================
       - name: Get LTW
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
@@ -60,156 +37,56 @@ jobs:
           name: output-aar
           path: app_pojavlauncher/libs
 
-      # ==========================================
-      # Get Turnip / Freedreno Vulkan driver
-      # ==========================================
       - name: Get Turnip
+        continue-on-error: true
         run: |
-          mkdir -p app_pojavlauncher/turnip
+          mkdir -p app_pojavlauncher/src/main/jniLibs/arm64-v8a
+          curl -L "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/libvulkan_freedreno.so" -o app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
+          ls -lh app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
 
-          curl -L \
-            "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/turnip_adrenotools.zip" \
-            -o /tmp/turnip.zip
-
-          unzip -o /tmp/turnip.zip \
-            vulkan.freedreno.so \
-            -d app_pojavlauncher/turnip
-
-          echo "Turnip library:"
-          ls -lh app_pojavlauncher/turnip/vulkan.freedreno.so
-
-          rm -f /tmp/turnip.zip
-
-      # ==========================================
-      # Set up Gradle
-      # ==========================================
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.14.3"
 
-      # ==========================================
-      # Set up JDK 17
-      # ==========================================
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
-      # ==========================================
-      # Create output directory
-      # ==========================================
-      - name: Create output directory
+      - name: Build APKs
         run: |
           mkdir -p out
-
-      # ==========================================
-      # Build Nether Launcher - Full Debug
-      # ==========================================
-      - name: Build Nether Launcher Full Debug
-        run: |
           gradle :app_pojavlauncher:assembleFullDebug
-
-          mv \
-            app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk \
-            out/NetherLauncher-debug-full.apk
-
-      # ==========================================
-      # Build Nether Launcher - No Runtime Debug
-      # ==========================================
-      - name: Build Nether Launcher No Runtime Debug
-        run: |
+          mv app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk out/NetherLauncher-debug-full.apk
           gradle :app_pojavlauncher:assembleNoruntimeDebug
+          mv app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk out/NetherLauncher-debug-noruntime.apk
 
-          mv \
-            app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk \
-            out/NetherLauncher-debug-noruntime.apk
+      - name: Get Legacy Zink
+        run: git clone https://github.com/Mica-team/ZinkPlugin.git ZinkPlugin
 
-      # ==========================================
-      # Clone Legacy Zink Plugin
-      # ==========================================
-      - name: Get Legacy Zink Plugin
-        run: |
-          git clone https://github.com/Mica-team/ZinkPlugin.git ZinkPlugin
-
-          echo "========== ZINK PLUGIN =========="
-          ls -la ZinkPlugin
-          echo "================================="
-
-      # ==========================================
-      # Build Legacy Zink Plugin
-      # ==========================================
-      - name: Build Legacy Zink Plugin
+      - name: Build Legacy Zink
         continue-on-error: true
         working-directory: ZinkPlugin
         run: |
           chmod +x gradlew
-
           ./gradlew assembleDebug
+          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then cp app/build/outputs/apk/debug/app-debug.apk ../out/NetherLauncher-ZinkPlugin-debug.apk; fi
 
-          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp \
-              app/build/outputs/apk/debug/app-debug.apk \
-              ../out/NetherLauncher-ZinkPlugin-debug.apk
-
-            echo "Legacy Zink plugin built successfully."
-          else
-            echo "Legacy Zink APK was not produced."
-            exit 1
-          fi
-
-      # ==========================================
-      # List generated APKs
-      # ==========================================
-      - name: List output files
+      - name: Generate checksums
         run: |
-          echo "========== OUTPUT =========="
-          ls -lh out
-          echo "============================"
+          md5sum out/NetherLauncher-debug-full.apk > out/NetherLauncher-debug-full.md5
+          md5sum out/NetherLauncher-debug-noruntime.apk > out/NetherLauncher-debug-noruntime.md5
+          if [ -f out/NetherLauncher-ZinkPlugin-debug.apk ]; then md5sum out/NetherLauncher-ZinkPlugin-debug.apk > out/NetherLauncher-ZinkPlugin-debug.md5; fi
 
-      # ==========================================
-      # Generate MD5 checksums
-      # ==========================================
-      - name: Generate MD5 checksums
-        run: |
-          md5sum out/NetherLauncher-debug-full.apk \
-            > out/NetherLauncher-debug-full.md5
-
-          md5sum out/NetherLauncher-debug-noruntime.apk \
-            > out/NetherLauncher-debug-noruntime.md5
-
-          if [ -f out/NetherLauncher-ZinkPlugin-debug.apk ]; then
-            md5sum out/NetherLauncher-ZinkPlugin-debug.apk \
-              > out/NetherLauncher-ZinkPlugin-debug.md5
-          fi
-
-      # ==========================================
-      # Create combined ZIP
-      # ==========================================
-      - name: Create Launcher + Legacy Zink ZIP
+      - name: Create ZIP
         run: |
           cd out
+          zip NetherLauncher-with-Legacy-Zink.zip NetherLauncher-debug-full.apk NetherLauncher-debug-noruntime.apk
+          [ -f NetherLauncher-ZinkPlugin-debug.apk ] && zip NetherLauncher-with-Legacy-Zink.zip NetherLauncher-ZinkPlugin-debug.apk
 
-          echo "Creating combined ZIP..."
-
-          zip NetherLauncher-with-Legacy-Zink.zip \
-            NetherLauncher-debug-full.apk \
-            NetherLauncher-debug-noruntime.apk
-
-          if [ -f NetherLauncher-ZinkPlugin-debug.apk ]; then
-            zip NetherLauncher-with-Legacy-Zink.zip \
-              NetherLauncher-ZinkPlugin-debug.apk
-          fi
-
-          echo "========== ZIP CONTENTS =========="
-          unzip -l NetherLauncher-with-Legacy-Zink.zip
-          echo "================================="
-
-      # ==========================================
-      # Upload Full Debug APK
-      # ==========================================
-      - name: Upload Nether Launcher Full
+      - name: Upload Full Debug
         uses: actions/upload-artifact@v4
         with:
           name: NetherLauncher-debug-full
@@ -217,10 +94,7 @@ jobs:
             out/NetherLauncher-debug-full.apk
             out/NetherLauncher-debug-full.md5
 
-      # ==========================================
-      # Upload No Runtime APK
-      # ==========================================
-      - name: Upload Nether Launcher No Runtime
+      - name: Upload No Runtime
         uses: actions/upload-artifact@v4
         with:
           name: NetherLauncher-debug-noruntime
@@ -228,10 +102,7 @@ jobs:
             out/NetherLauncher-debug-noruntime.apk
             out/NetherLauncher-debug-noruntime.md5
 
-      # ==========================================
-      # Upload Legacy Zink Plugin
-      # ==========================================
-      - name: Upload Legacy Zink Plugin
+      - name: Upload Legacy Zink
         if: ${{ hashFiles('out/NetherLauncher-ZinkPlugin-debug.apk') != '' }}
         uses: actions/upload-artifact@v4
         with:
@@ -240,10 +111,7 @@ jobs:
             out/NetherLauncher-ZinkPlugin-debug.apk
             out/NetherLauncher-ZinkPlugin-debug.md5
 
-      # ==========================================
-      # Upload Combined ZIP
-      # ==========================================
-      - name: Upload Combined Launcher + Zink
+      - name: Upload Combined ZIP
         uses: actions/upload-artifact@v4
         with:
           name: NetherLauncher-with-Legacy-Zink
