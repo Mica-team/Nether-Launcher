@@ -31,6 +31,9 @@ class DownloadImageTask implements Runnable {
 
     public boolean runCatching() {
         try {
+            // Clean before creating another cache file so the selected limit is respected
+            // throughout a browsing session, not only when the cache object is created.
+            IconCacheJanitor.runJanitor();
             IconCacheJanitor.waitForJanitorToFinish();
             DownloadUtils.downloadFile(mParentTask.imageUrl, mParentTask.cacheFile);
             Bitmap bitmap = BitmapFactory.decodeFile(mParentTask.cacheFile.getAbsolutePath());
