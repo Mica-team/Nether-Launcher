@@ -40,6 +40,22 @@
             android:key="zinkPreferSystemDriver"
             android:summary="@string/preference_vulkan_driver_system_description"
             android:title="@string/preference_vulkan_driver_system_title"/>
+
+        <net.kdt.pojavlaunch.prefs.ModIconCacheLimitPreference
+            android:defaultValue="100"
+            android:key="modIconCacheLimit"
+            android:title="@string/preference_mod_icon_cache_limit_title"
+            android:summary="@string/preference_mod_icon_cache_limit_description"
+            app2:min="10"
+            app2:max="1024"
+            app2:seekBarIncrement="10" />
+
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="modIconCacheUnlimited"
+            android:title="@string/preference_mod_icon_cache_unlimited_title"
+            android:summary="@string/preference_mod_icon_cache_unlimited_description" />
+
         <Preference
             android:key="microphoneAccessRequest"
             android:icon="@drawable/ic_microphone"
