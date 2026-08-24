@@ -1,66 +1,98 @@
 package net.kdt.pojavlaunch.modloaders.modpacks.imagecache;
 
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import net.kdt.pojavlaunch.PojavApplication;
+import net.kdt.pojavlaunch.prefs.LauncherPreferences;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 /**
- * This image is intended to keep the mod icon cache tidy (aka under 100 megabytes)
+ * Keeps the mod icon cache under the user-selected size limit.
  */
-public class IconCacheJanitor implements Runnable{
-    public static final long CACHE_SIZE_LIMIT = 104857600; // The cache size limit, 100 megabytes
-    public static final long CACHE_BRINGDOWN = 52428800; // The size to which the cache should be brought
-    // in case of an overflow, 50 mb
+public class IconCacheJanitor implements Runnable {
+    private static final long DEFAULT_CACHE_SIZE_LIMIT = 100L * 1024L * 1024L;
+    private static final String PREF_CACHE_LIMIT = "modIconCacheLimit";
+    private static final String PREF_CACHE_UNLIMITED = "modIconCacheUnlimited";
+
     private static Future<?> sJanitorFuture;
     private static boolean sJanitorRan = false;
+
     private IconCacheJanitor() {
         // don't allow others to create this
     }
+
+    private static long getCacheSizeLimit() {
+        SharedPreferences preferences = LauncherPreferences.DEFAULT_PREF;
+        if (preferences == null) return DEFAULT_CACHE_SIZE_LIMIT;
+        if (preferences.getBoolean(PREF_CACHE_UNLIMITED, false)) return Long.MAX_VALUE;
+
+        int limitMb = preferences.getInt(PREF_CACHE_LIMIT, 100);
+        limitMb = Math.max(10, Math.min(1024, limitMb));
+        return limitMb * 1024L * 1024L;
+    }
+
     @Override
     public void run() {
-        File modIconCachePath = ModIconCache.getImageCachePath();
-        if(!modIconCachePath.isDirectory() || !modIconCachePath.canRead()) return;
-        File[] modIconFiles = modIconCachePath.listFiles();
-        if(modIconFiles == null) return;
-        ArrayList<File> writableModIconFiles = new ArrayList<>(modIconFiles.length);
-        long directoryFileSize = 0;
-        for(File modIconFile : modIconFiles) {
-            if(!modIconFile.isFile() || !modIconFile.canRead()) continue;
-            directoryFileSize += modIconFile.length();
-            if(!modIconFile.canWrite()) continue;
-            writableModIconFiles.add(modIconFile);
-        }
-        if(directoryFileSize < CACHE_SIZE_LIMIT)  {
-            Log.i("IconCacheJanitor", "Skipping cleanup because there's not enough to clean up");
-            return;
-        }
-        Arrays.sort(modIconFiles,
-                (x,y)-> Long.compare(y.lastModified(), x.lastModified())
-        );
-        int filesCleanedUp = 0;
-        for(File modFile : writableModIconFiles) {
-            if(directoryFileSize < CACHE_BRINGDOWN) break;
-            long modFileSize = modFile.length();
-            if(modFile.delete()) {
-                directoryFileSize -= modFileSize;
-                filesCleanedUp++;
+        try {
+            long cacheSizeLimit = getCacheSizeLimit();
+            if (cacheSizeLimit == Long.MAX_VALUE) {
+                Log.i("IconCacheJanitor", "Skipping cleanup because mod icon cache is unlimited");
+                return;
             }
-        }
-        Log.i("IconCacheJanitor", "Cleaned up "+filesCleanedUp+ " files");
-        synchronized (IconCacheJanitor.class) {
-            sJanitorFuture = null;
-            sJanitorRan = true;
+
+            File modIconCachePath = ModIconCache.getImageCachePath();
+            if (!modIconCachePath.isDirectory() || !modIconCachePath.canRead()) return;
+
+            File[] modIconFiles = modIconCachePath.listFiles();
+            if (modIconFiles == null) return;
+
+            ArrayList<File> writableModIconFiles = new ArrayList<>(modIconFiles.length);
+            long directoryFileSize = 0;
+            for (File modIconFile : modIconFiles) {
+                if (!modIconFile.isFile() || !modIconFile.canRead()) continue;
+                directoryFileSize += modIconFile.length();
+                if (modIconFile.canWrite()) writableModIconFiles.add(modIconFile);
+            }
+
+            if (directoryFileSize <= cacheSizeLimit) {
+                Log.i("IconCacheJanitor", "Skipping cleanup because cache is within the selected limit");
+                return;
+            }
+
+            // Remove the oldest files first and bring the cache down to half its limit.
+            final long cacheBringdown = cacheSizeLimit / 2;
+            Collections.sort(writableModIconFiles,
+                    Comparator.comparingLong(File::lastModified));
+
+            int filesCleanedUp = 0;
+            for (File modFile : writableModIconFiles) {
+                if (directoryFileSize <= cacheBringdown) break;
+                long modFileSize = modFile.length();
+                if (modFile.delete()) {
+                    directoryFileSize -= modFileSize;
+                    filesCleanedUp++;
+                }
+            }
+
+            Log.i("IconCacheJanitor", "Cleaned up " + filesCleanedUp
+                    + " files; cache limit=" + cacheSizeLimit + " bytes");
+        } finally {
+            synchronized (IconCacheJanitor.class) {
+                sJanitorFuture = null;
+                sJanitorRan = true;
+            }
         }
     }
 
     /**
-     * Runs the janitor task, unless there was one running already or one has ran already
+     * Runs the janitor task once per process unless it has already run.
      */
     public static void runJanitor() {
         synchronized (IconCacheJanitor.class) {
@@ -70,8 +102,18 @@ public class IconCacheJanitor implements Runnable{
     }
 
     /**
-     * Waits for the janitor task to finish, if there is one running already
-     * Note that the thread waiting must not be interrupted.
+     * Forces a cleanup request. Used when the user changes the cache limit.
+     */
+    public static void runJanitorNow() {
+        synchronized (IconCacheJanitor.class) {
+            if (sJanitorFuture != null) return;
+            sJanitorRan = false;
+            sJanitorFuture = PojavApplication.sExecutorService.submit(new IconCacheJanitor());
+        }
+    }
+
+    /**
+     * Waits for the janitor task to finish, if there is one running already.
      */
     public static void waitForJanitorToFinish() {
         synchronized (IconCacheJanitor.class) {
