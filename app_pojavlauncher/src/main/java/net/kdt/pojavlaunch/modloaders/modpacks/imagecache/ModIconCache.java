@@ -31,7 +31,7 @@ public class ModIconCache {
         if(!FileUtils.ensureDirectorySilently(cachePath)) {
                 throw new RuntimeException("Failed to create icon cache directory");
         }
-
+        IconCacheJanitor.runJanitor();
     }
     static File getImageCachePath() {
         return new File(Tools.DIR_CACHE, "mod_icons");
