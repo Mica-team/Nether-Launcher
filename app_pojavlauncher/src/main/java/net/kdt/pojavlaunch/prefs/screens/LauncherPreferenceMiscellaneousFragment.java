@@ -67,6 +67,11 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
         boolean unlimited = LauncherPreferences.DEFAULT_PREF.getBoolean("modIconCacheUnlimited", false);
         cacheLimitPreference.setEnabled(!unlimited);
 
+        cacheLimitPreference.setOnPreferenceChangeListener((preference, newValue) -> {
+            IconCacheJanitor.runJanitorNow();
+            return true;
+        });
+
         unlimitedPreference.setOnPreferenceChangeListener((preference, newValue) -> {
             boolean enabled = (Boolean) newValue;
             cacheLimitPreference.setEnabled(!enabled);
