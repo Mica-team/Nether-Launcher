@@ -22,7 +22,6 @@ public class IconCacheJanitor implements Runnable {
     private static final String PREF_CACHE_UNLIMITED = "modIconCacheUnlimited";
 
     private static Future<?> sJanitorFuture;
-    private static boolean sJanitorRan = false;
 
     private IconCacheJanitor() {
         // don't allow others to create this
@@ -86,30 +85,25 @@ public class IconCacheJanitor implements Runnable {
         } finally {
             synchronized (IconCacheJanitor.class) {
                 sJanitorFuture = null;
-                sJanitorRan = true;
             }
         }
     }
 
     /**
-     * Runs the janitor task once per process unless it has already run.
+     * Requests a cleanup. If one is already running, the existing task is reused.
      */
     public static void runJanitor() {
         synchronized (IconCacheJanitor.class) {
-            if (sJanitorFuture != null || sJanitorRan) return;
+            if (sJanitorFuture != null) return;
             sJanitorFuture = PojavApplication.sExecutorService.submit(new IconCacheJanitor());
         }
     }
 
     /**
-     * Forces a cleanup request. Used when the user changes the cache limit.
+     * Forces a cleanup request when the user changes the cache setting.
      */
     public static void runJanitorNow() {
-        synchronized (IconCacheJanitor.class) {
-            if (sJanitorFuture != null) return;
-            sJanitorRan = false;
-            sJanitorFuture = PojavApplication.sExecutorService.submit(new IconCacheJanitor());
-        }
+        runJanitor();
     }
 
     /**
