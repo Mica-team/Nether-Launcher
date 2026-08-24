@@ -32,7 +32,9 @@ public class ModIconCacheLimitPreference extends CustomSeekBarPreference {
     public void onBindViewHolder(@NonNull PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
         mValueView = (TextView) holder.findViewById(R.id.seekbar_value);
-        mValueView.setOnClickListener(v -> showManualValueDialog());
+        if (mValueView != null) {
+            mValueView.setOnClickListener(v -> showManualValueDialog());
+        }
         updateValueText();
     }
 
@@ -49,9 +51,7 @@ public class ModIconCacheLimitPreference extends CustomSeekBarPreference {
     }
 
     private String formatValue(int value) {
-        if (value == MAX_MB) {
-            return getContext().getString(R.string.mod_icon_cache_limit_one_gb);
-        }
+        if (value == MAX_MB) return "1 GB";
         return value + " MB";
     }
 
@@ -63,22 +63,22 @@ public class ModIconCacheLimitPreference extends CustomSeekBarPreference {
         input.setSelectAllOnFocus(true);
 
         new AlertDialog.Builder(getContext())
-                .setTitle(R.string.mod_icon_cache_limit_edit_title)
-                .setMessage(R.string.mod_icon_cache_limit_edit_message)
+                .setTitle("Cache limit")
+                .setMessage("Enter a value from 10 MB to 1024 MB.")
                 .setView(input)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                     try {
                         int value = Integer.parseInt(input.getText().toString().trim());
                         if (value < MIN_MB || value > MAX_MB) {
-                            input.setError(getContext().getString(R.string.mod_icon_cache_limit_invalid));
+                            input.setError("Enter a value from 10 to 1024 MB");
                             return;
                         }
                         setValue(value);
                         persistInt(value);
                         IconCacheJanitor.runJanitorNow();
                     } catch (NumberFormatException e) {
-                        input.setError(getContext().getString(R.string.mod_icon_cache_limit_invalid));
+                        input.setError("Enter a value from 10 to 1024 MB");
                     }
                 })
                 .show();
