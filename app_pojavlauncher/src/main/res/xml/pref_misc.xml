@@ -48,7 +48,7 @@
             android:summary="Set the maximum amount of storage used by launcher caches."
             app2:min="10"
             app2:max="1024"
-            app2:seekBarIncrement="10" />
+            app2:seekBarIncrement="1" />
 
         <SwitchPreference
             android:defaultValue="false"
