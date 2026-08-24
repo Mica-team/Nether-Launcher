@@ -15,6 +15,7 @@ import androidx.preference.Preference;
 import git.artdeell.mojo.R;
 
 import net.kdt.pojavlaunch.LauncherActivity;
+import net.kdt.pojavlaunch.modloaders.modpacks.imagecache.IconCacheJanitor;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
 import net.kdt.pojavlaunch.tasks.DataMigrator;
 import net.kdt.pojavlaunch.utils.GLInfoUtils;
@@ -43,6 +44,9 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
         PackageManager packageManager = driverPreference.getContext().getPackageManager();
         boolean supportsTurnip = RendererCompatUtil.checkVulkanSupport(packageManager) && GLInfoUtils.getGlInfo().isAdreno();
         driverPreference.setVisible(supportsTurnip);
+
+        setupModIconCachePreferences();
+
         Preference importPreference = requirePreference("runDataMigration");
         importPreference.setOnPreferenceClickListener(preference -> {
             if(ProgressKeeper.getTaskCount() > 0) {
@@ -53,6 +57,21 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
             return true;
         });
         setupMicrophoneRequestPreference();
+    }
+
+    private void setupModIconCachePreferences() {
+        Preference cacheLimitPreference = requirePreference("modIconCacheLimit");
+        Preference unlimitedPreference = requirePreference("modIconCacheUnlimited");
+
+        boolean unlimited = LauncherPreferences.DEFAULT_PREF.getBoolean("modIconCacheUnlimited", false);
+        cacheLimitPreference.setEnabled(!unlimited);
+
+        unlimitedPreference.setOnPreferenceChangeListener((preference, newValue) -> {
+            boolean enabled = (Boolean) newValue;
+            cacheLimitPreference.setEnabled(!enabled);
+            IconCacheJanitor.runJanitorNow();
+            return true;
+        });
     }
 
     private void updateVisibility(){
