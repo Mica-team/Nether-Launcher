@@ -43,18 +43,18 @@
 
         <net.kdt.pojavlaunch.prefs.ModIconCacheLimitPreference
             android:defaultValue="100"
-            android:key="modIconCacheLimit"
-            android:title="@string/preference_mod_icon_cache_limit_title"
-            android:summary="@string/preference_mod_icon_cache_limit_description"
+            android:key="cacheLimit"
+            android:title="Cache limit"
+            android:summary="Set the maximum amount of storage used by launcher caches."
             app2:min="10"
             app2:max="1024"
             app2:seekBarIncrement="10" />
 
         <SwitchPreference
             android:defaultValue="false"
-            android:key="modIconCacheUnlimited"
-            android:title="@string/preference_mod_icon_cache_unlimited_title"
-            android:summary="@string/preference_mod_icon_cache_unlimited_description" />
+            android:key="cacheUnlimited"
+            android:title="Unlimited cache"
+            android:summary="Allow launcher caches to grow without a size limit." />
 
         <Preference
             android:key="microphoneAccessRequest"
