@@ -68,12 +68,15 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
         cacheLimitPreference.setEnabled(!unlimited);
 
         cacheLimitPreference.setOnPreferenceChangeListener((preference, newValue) -> {
+            int value = (Integer) newValue;
+            LauncherPreferences.DEFAULT_PREF.edit().putInt("cacheLimit", value).apply();
             IconCacheJanitor.runJanitorNow();
             return true;
         });
 
         unlimitedPreference.setOnPreferenceChangeListener((preference, newValue) -> {
             boolean enabled = (Boolean) newValue;
+            LauncherPreferences.DEFAULT_PREF.edit().putBoolean("cacheUnlimited", enabled).apply();
             cacheLimitPreference.setEnabled(!enabled);
             IconCacheJanitor.runJanitorNow();
             return true;
