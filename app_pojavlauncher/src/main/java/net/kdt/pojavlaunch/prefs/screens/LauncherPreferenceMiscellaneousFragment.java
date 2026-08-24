@@ -16,6 +16,7 @@ import git.artdeell.mojo.R;
 
 import net.kdt.pojavlaunch.LauncherActivity;
 import net.kdt.pojavlaunch.modloaders.modpacks.imagecache.IconCacheJanitor;
+import net.kdt.pojavlaunch.prefs.LauncherPreferences;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
 import net.kdt.pojavlaunch.tasks.DataMigrator;
 import net.kdt.pojavlaunch.utils.GLInfoUtils;
