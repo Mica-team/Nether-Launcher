@@ -46,7 +46,7 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
         boolean supportsTurnip = RendererCompatUtil.checkVulkanSupport(packageManager) && GLInfoUtils.getGlInfo().isAdreno();
         driverPreference.setVisible(supportsTurnip);
 
-        setupModIconCachePreferences();
+        setupCachePreferences();
 
         Preference importPreference = requirePreference("runDataMigration");
         importPreference.setOnPreferenceClickListener(preference -> {
@@ -60,11 +60,11 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
         setupMicrophoneRequestPreference();
     }
 
-    private void setupModIconCachePreferences() {
-        Preference cacheLimitPreference = requirePreference("modIconCacheLimit");
-        Preference unlimitedPreference = requirePreference("modIconCacheUnlimited");
+    private void setupCachePreferences() {
+        Preference cacheLimitPreference = requirePreference("cacheLimit");
+        Preference unlimitedPreference = requirePreference("cacheUnlimited");
 
-        boolean unlimited = LauncherPreferences.DEFAULT_PREF.getBoolean("modIconCacheUnlimited", false);
+        boolean unlimited = LauncherPreferences.DEFAULT_PREF.getBoolean("cacheUnlimited", false);
         cacheLimitPreference.setEnabled(!unlimited);
 
         cacheLimitPreference.setOnPreferenceChangeListener((preference, newValue) -> {
