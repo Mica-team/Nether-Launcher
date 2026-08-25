@@ -12,13 +12,4 @@ public class CacheLimitPreference extends CustomSeekBarPreference {
     public CacheLimitPreference(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
-
-    @Override
-    protected String getValueText(int value) {
-        if (value >= 1024) {
-            return "1 GB";
-        }
-
-        return value + " MB";
-    }
 }
