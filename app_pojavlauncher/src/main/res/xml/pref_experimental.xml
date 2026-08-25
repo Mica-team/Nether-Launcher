@@ -35,7 +35,8 @@
             android:title="@string/cache_limit_title"
             android:summary="@string/cache_limit_description"
             app2:min="0"
-            app2:seekBarIncrement="1" />
+            app2:seekBarIncrement="1"
+            app2:layout="@layout/preference_cache_limit" />
 
     </PreferenceCategory>
 </PreferenceScreen>
