@@ -40,22 +40,6 @@
             android:key="zinkPreferSystemDriver"
             android:summary="@string/preference_vulkan_driver_system_description"
             android:title="@string/preference_vulkan_driver_system_title"/>
-
-        <net.kdt.pojavlaunch.prefs.ModIconCacheLimitPreference
-            android:defaultValue="100"
-            android:key="cacheLimit"
-            android:title="Cache limit"
-            android:summary="Set the maximum amount of storage used by launcher caches."
-            app2:min="10"
-            app2:max="1024"
-            app2:seekBarIncrement="1" />
-
-        <SwitchPreference
-            android:defaultValue="false"
-            android:key="cacheUnlimited"
-            android:title="Unlimited cache"
-            android:summary="Allow launcher caches to grow without a size limit." />
-
         <Preference
             android:key="microphoneAccessRequest"
             android:icon="@drawable/ic_microphone"

@@ -508,10 +508,4 @@
     <string name="loading_screen_title">Game is loading…</string>
     <string name="loading_screen_booted">Ready - running on %1$s!</string>
     <string name="loading_screen_warning">If the game is taking too long to load, it may have crashed</string>
-
-    <!-- cache limit part -->
-    <string name="preference_cache_limit_title">Cache limit</string>
-    <string name="preference_cache_limit_description">Set the maximum amount of storage used by launcher caches.</string>
-    <string name="preference_cache_unlimited_title">Unlimited cache</string>
-    <string name="preference_cache_unlimited_description">Allow launcher caches to grow without a size limit.</string>
 </resources>

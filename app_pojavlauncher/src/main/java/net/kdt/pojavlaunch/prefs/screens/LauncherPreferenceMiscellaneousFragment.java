@@ -15,8 +15,6 @@ import androidx.preference.Preference;
 import git.artdeell.mojo.R;
 
 import net.kdt.pojavlaunch.LauncherActivity;
-import net.kdt.pojavlaunch.modloaders.modpacks.imagecache.IconCacheJanitor;
-import net.kdt.pojavlaunch.prefs.LauncherPreferences;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
 import net.kdt.pojavlaunch.tasks.DataMigrator;
 import net.kdt.pojavlaunch.utils.GLInfoUtils;
@@ -45,9 +43,6 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
         PackageManager packageManager = driverPreference.getContext().getPackageManager();
         boolean supportsTurnip = RendererCompatUtil.checkVulkanSupport(packageManager) && GLInfoUtils.getGlInfo().isAdreno();
         driverPreference.setVisible(supportsTurnip);
-
-        setupCachePreferences();
-
         Preference importPreference = requirePreference("runDataMigration");
         importPreference.setOnPreferenceClickListener(preference -> {
             if(ProgressKeeper.getTaskCount() > 0) {
@@ -58,29 +53,6 @@ public class LauncherPreferenceMiscellaneousFragment extends LauncherPreferenceF
             return true;
         });
         setupMicrophoneRequestPreference();
-    }
-
-    private void setupCachePreferences() {
-        Preference cacheLimitPreference = requirePreference("cacheLimit");
-        Preference unlimitedPreference = requirePreference("cacheUnlimited");
-
-        boolean unlimited = LauncherPreferences.DEFAULT_PREF.getBoolean("cacheUnlimited", false);
-        cacheLimitPreference.setEnabled(!unlimited);
-
-        cacheLimitPreference.setOnPreferenceChangeListener((preference, newValue) -> {
-            int value = (Integer) newValue;
-            LauncherPreferences.DEFAULT_PREF.edit().putInt("cacheLimit", value).apply();
-            IconCacheJanitor.runJanitorNow();
-            return true;
-        });
-
-        unlimitedPreference.setOnPreferenceChangeListener((preference, newValue) -> {
-            boolean enabled = (Boolean) newValue;
-            LauncherPreferences.DEFAULT_PREF.edit().putBoolean("cacheUnlimited", enabled).apply();
-            cacheLimitPreference.setEnabled(!enabled);
-            IconCacheJanitor.runJanitorNow();
-            return true;
-        });
     }
 
     private void updateVisibility(){
