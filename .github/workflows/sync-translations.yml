@@ -6,12 +6,10 @@ on:
       - v3_openjdk
     paths:
       - "app_pojavlauncher/src/main/res/values/strings.xml"
-      - "app_pojavlauncher/src/main/res/values-*/strings.xml"
   workflow_dispatch:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   sync:
@@ -31,29 +29,20 @@ jobs:
       - name: Sync translations
         run: python3 scripts/sync_translations.py
 
-      - name: Check changes
+      - name: Check for changes
         id: changes
         run: |
-          if git diff --quiet; then
+          if git diff --quiet -- app_pojavlauncher/src/main/res/values-*/strings.xml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create pull request
+      - name: Commit synchronized translations
         if: steps.changes.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "Nether Translation Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b bot/sync-translations
           git add app_pojavlauncher/src/main/res/values-*/strings.xml
           git commit -m "chore: sync translations"
-          git push --force origin bot/sync-translations
-          gh pr create \
-            --base v3_openjdk \
-            --head bot/sync-translations \
-            --title "chore: sync translations" \
-            --body "Automatically synchronized missing translation keys from values/strings.xml."
-        continue-on-error: true
+          git push origin HEAD:v3_openjdk
