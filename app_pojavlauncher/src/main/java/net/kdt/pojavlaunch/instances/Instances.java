@@ -40,7 +40,7 @@ public class Instances {
     }
 
     protected static File metadataLocation(File instanceDir) {
-        return new File(instanceDir, "mojo_instance.json");
+        return new File(instanceDir, "nether_instance.json");
     }
 
     private static File selectedInstanceLocation() {
