@@ -27,5 +27,15 @@
             android:title="@string/preference_alsoft_opensl_title"
             android:summary="@string/preference_alsoft_opensl_summary"
             />
+
+        <net.kdt.pojavlaunch.prefs.CacheLimitPreference
+            android:defaultValue="100"
+            android:key="cacheLimitMb"
+            android:max="1024"
+            android:title="@string/cache_limit_title"
+            android:summary="@string/cache_limit_description"
+            app2:min="0"
+            app2:seekBarIncrement="1" />
+
     </PreferenceCategory>
 </PreferenceScreen>
