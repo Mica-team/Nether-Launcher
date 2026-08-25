@@ -24,10 +24,12 @@ public class CacheLimitPreference extends CustomSeekBarPreference {
 
     public CacheLimitPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
+        setLayoutResource(R.layout.preference_cache_limit);
     }
 
     public CacheLimitPreference(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        setLayoutResource(R.layout.preference_cache_limit);
     }
 
     @Override
@@ -36,12 +38,18 @@ public class CacheLimitPreference extends CustomSeekBarPreference {
 
         TextView valueView = holder.itemView.findViewById(R.id.seekbar_value);
         SeekBar seekBar = holder.itemView.findViewById(R.id.seekbar);
+        if (valueView == null || seekBar == null) return;
 
-        SeekBar.OnSeekBarChangeListener listener = new SeekBar.OnSeekBarChangeListener() {
+        valueView.setText(formatLimit(normalize(getValue())));
+        valueView.setFocusable(false);
+        valueView.setClickable(false);
+
+        seekBar.setMax(MAX_MB);
+        seekBar.setProgress(normalize(getValue()));
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
                 int value = normalize(progress);
-                if (fromUser && value != progress) bar.setProgress(value);
                 valueView.setText(formatLimit(value));
             }
 
@@ -52,16 +60,11 @@ public class CacheLimitPreference extends CustomSeekBarPreference {
             @Override
             public void onStopTrackingTouch(SeekBar bar) {
                 int value = normalize(bar.getProgress());
-                bar.setProgress(value);
                 setValue(value);
                 valueView.setText(formatLimit(value));
                 IconCacheJanitor.runJanitor();
             }
-        };
-        seekBar.setOnSeekBarChangeListener(listener);
-        seekBar.setProgress(normalize(getValue()));
-        valueView.setText(formatLimit(normalize(getValue())));
-        valueView.setOnClickListener(v -> showEditDialog(valueView, seekBar));
+        });
     }
 
     private int normalize(int value) {
@@ -75,6 +78,7 @@ public class CacheLimitPreference extends CustomSeekBarPreference {
         return value + " MB";
     }
 
+    @SuppressWarnings("unused")
     private void showEditDialog(TextView valueView, SeekBar seekBar) {
         EditText input = new EditText(getContext());
         input.setSingleLine(true);
@@ -115,9 +119,7 @@ public class CacheLimitPreference extends CustomSeekBarPreference {
                 double gb = Double.parseDouble(value.substring(0, value.length() - 2).trim());
                 return normalize((int) Math.round(gb * 1024));
             }
-            if (value.endsWith("mb")) {
-                value = value.substring(0, value.length() - 2).trim();
-            }
+            if (value.endsWith("mb")) value = value.substring(0, value.length() - 2).trim();
             return normalize(Integer.parseInt(value));
         } catch (NumberFormatException e) {
             return null;
