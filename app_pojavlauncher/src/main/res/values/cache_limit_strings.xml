@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cache_limit_title">Cache limit</string>
+    <string name="cache_limit_description">Limit the launcher mod icon cache. This does not affect game or instance data.</string>
+    <string name="cache_limit_unlimited">Unlimited</string>
+    <string name="cache_limit_edit_title">Edit cache limit</string>
+    <string name="cache_limit_edit_hint">10 MB - 1 GB, or Unlimited</string>
+    <string name="cache_limit_invalid">Enter a value from 10 MB to 1 GB, or Unlimited.</string>
+</resources>
