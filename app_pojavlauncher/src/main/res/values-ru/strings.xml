@@ -444,4 +444,10 @@
     <string name="loading_screen_title">Ожидание появления окна игры…</string>
     <string name="loading_screen_booted">Запущено - используется %1$s!</string>
     <string name="loading_screen_warning">Если окно долго не появляется - возможно игра вылетела</string>
+
+    <string name="toast_3">Exit</string>
+    <string name="control_more3"></string>
+    <string name="control_more4"></string>
+    <string name="color_default_hex">FFFF0000</string>
+    <string name="notif_channel_id">channel_id</string>
 </resources>
