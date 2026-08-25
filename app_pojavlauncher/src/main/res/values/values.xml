@@ -34,4 +34,8 @@
     <integer name="memory_seekbar_increment">8</integer>
     <integer name="memory_seekbar_min">256</integer>
 
+    <integer name="cache_limit_seekbar_min">10</integer>
+<integer name="cache_limit_seekbar_max">1024</integer>
+<integer name="cache_limit_seekbar_increment">8</integer>
+
 </resources>
