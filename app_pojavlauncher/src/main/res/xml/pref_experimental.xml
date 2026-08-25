@@ -36,6 +36,7 @@
             android:title="@string/cache_limit_title"
             android:summary="@string/cache_limit_description"
             android:defaultValue="100"
+            android:icon="@drawable/ic_cache_limit"
             android:max="1024"
             app2:min="10"
             app2:seekBarIncrement="1" />
