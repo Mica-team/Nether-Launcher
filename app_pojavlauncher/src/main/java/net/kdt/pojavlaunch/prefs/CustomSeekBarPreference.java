@@ -76,8 +76,7 @@ public class CustomSeekBarPreference extends SeekBarPreference {
                 progress = progress * getSeekBarIncrement();
                 progress -= mMin;
 
-                mTextView.setText(String.valueOf(progress + mMin));
-                updateTextViewWithSuffix();
+                mTextView.setText(formatValue(progress + mMin));
             }
 
             @Override
@@ -97,6 +96,11 @@ public class CustomSeekBarPreference extends SeekBarPreference {
         });
 
         updateTextViewWithSuffix();
+    }
+
+    /** Formats the value displayed beside the seekbar. */
+    protected String formatValue(int value) {
+        return String.valueOf(value);
     }
 
     /**
