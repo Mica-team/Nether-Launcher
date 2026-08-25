@@ -26,13 +26,15 @@ public class ModIconCache {
             new LinkedBlockingQueue<>());
     File cachePath;
     private final List<WeakReference<ImageReceiver>> mCancelledReceivers = new ArrayList<>();
+
     public ModIconCache() {
         cachePath = getImageCachePath();
         if(!FileUtils.ensureDirectorySilently(cachePath)) {
-                throw new RuntimeException("Failed to create icon cache directory");
+            throw new RuntimeException("Failed to create icon cache directory");
         }
-
+        IconCacheJanitor.runJanitor();
     }
+
     static File getImageCachePath() {
         return new File(Tools.DIR_CACHE, "mod_icons");
     }
@@ -47,12 +49,6 @@ public class ModIconCache {
         cacheLoaderPool.execute(new ReadFromDiskTask(this, imageReceiver, imageTag, imageUrl));
     }
 
-    /**
-     * Mark the image obtainment task requested with this receiver as "cancelled". This means that
-     * this receiver will not be called back and that some tasks related to this image may be
-     * prevented from happening or interrupted.
-     * @param imageReceiver the receiver to cancel
-     */
     public void cancelImage(ImageReceiver imageReceiver) {
         synchronized (mCancelledReceivers) {
             mCancelledReceivers.add(new WeakReference<>(imageReceiver));
@@ -77,14 +73,6 @@ public class ModIconCache {
         if(isCanceled) Log.i("IconCache", "checkCancelled("+imageReceiver.hashCode()+") == true");
         return isCanceled;
     }
-
-    /**
-     * Get the base64-encoded version of a cached icon by its tag.
-     * Note: this functions performs I/O operations, and should not be called on the UI
-     * thread.
-     * @param imageTag the icon tag
-     * @return the base64 encoded image or null if not cached
-     */
 
     public static void writeInstanceImage(Instance instance, String imageTag) {
         File imagePath = new File(Tools.DIR_CACHE, "mod_icons/"+imageTag+".ca");
