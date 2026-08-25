@@ -39,7 +39,8 @@
             android:icon="@drawable/ic_cache_limit"
             android:max="1024"
             app2:min="10"
-            app2:seekBarIncrement="1" />
+            app2:seekBarIncrement="1"
+            app2:layout="@layout/preference_cache_limit" />
 
     </PreferenceCategory>
 
