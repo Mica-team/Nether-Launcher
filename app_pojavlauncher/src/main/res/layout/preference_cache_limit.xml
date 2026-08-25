@@ -31,7 +31,7 @@
         android:orientation="horizontal">
 
         <EditText
-            android:id="@id/seekbar_value"
+            android:id="@+id/seekbar_value"
             android:layout_width="96dp"
             android:layout_height="wrap_content"
             android:gravity="center"
@@ -41,7 +41,7 @@
             android:textSize="14sp" />
 
         <SeekBar
-            android:id="@id/seekbar"
+            android:id="@+id/seekbar"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
