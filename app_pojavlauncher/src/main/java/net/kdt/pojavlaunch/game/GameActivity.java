@@ -114,82 +114,41 @@ public class GameActivity extends BaseActivity
     public static int mForcedPanningHeight = 0;
     public static int mImeHeight = 0;
 
-    /*
-     * Jarvis easter egg.
-     *
-     * Spaces are removed and comparison is case-insensitive.
-     */
     private boolean isJarvisAccount() {
         if (account == null || account.username == null) {
             return false;
         }
 
-        String username = account.username
-                .replace(" ", "")
-                .trim();
-
+        // Ignore all whitespace and compare without caring about case.
+        String username = account.username.replaceAll("\\s+", "");
         return username.equalsIgnoreCase("jarvis");
     }
 
-    /*
-     * Plays the Jarvis easter egg sound.
-     *
-     * Minecraft continues loading normally.
-     */
     private void playJarvisEasterEgg() {
         if (!isJarvisAccount()) {
             return;
         }
 
         try {
-            MediaPlayer player =
-                    MediaPlayer.create(
-                            this,
-                            R.raw.welcome_back
-                    );
+            MediaPlayer player = MediaPlayer.create(this, R.raw.welcome_back);
 
             if (player == null) {
-                Log.w(
-                        "JarvisEasterEgg",
-                        "Could not create MediaPlayer"
-                );
+                Log.w("JarvisEasterEgg", "Could not create MediaPlayer");
                 return;
             }
 
-            player.setOnCompletionListener(mp -> {
-                mp.release();
-            });
-
+            player.setOnCompletionListener(MediaPlayer::release);
             player.setOnErrorListener((mp, what, extra) -> {
-                Log.w(
-                        "JarvisEasterEgg",
-                        "MediaPlayer error: " +
-                                what +
-                                ", " +
-                                extra
-                );
-
+                Log.w("JarvisEasterEgg", "MediaPlayer error: " + what + ", " + extra);
                 mp.release();
                 return true;
             });
 
             player.start();
-
-            Log.i(
-                    "JarvisEasterEgg",
-                    "Jarvis easter egg triggered"
-            );
-
+            Log.i("JarvisEasterEgg", "Jarvis easter egg triggered");
         } catch (Throwable e) {
-            /*
-             * The easter egg must NEVER prevent
-             * Minecraft from launching.
-             */
-            Log.w(
-                    "JarvisEasterEgg",
-                    "Could not play Jarvis easter egg",
-                    e
-            );
+            // The easter egg must never prevent Minecraft from launching.
+            Log.w("JarvisEasterEgg", "Could not play Jarvis easter egg", e);
         }
     }
 
@@ -200,13 +159,8 @@ public class GameActivity extends BaseActivity
         instance = Instances.loadSelectedInstance();
         account = Accounts.getCurrent();
 
-        /*
-         * Trigger the easter egg after the current
-         * account has been loaded.
-         *
-         * This does NOT wait for the sound.
-         * Minecraft continues normally.
-         */
+        // Every new GameActivity created by pressing Play gets its own trigger.
+        // No savedInstanceState check: we want it every time Play is pressed.
         playJarvisEasterEgg();
 
         if (instance == null) {
@@ -215,7 +169,6 @@ public class GameActivity extends BaseActivity
                     R.string.instance_dir_missing,
                     Toast.LENGTH_LONG
             ).show();
-
             finish();
             return;
         }
@@ -229,9 +182,7 @@ public class GameActivity extends BaseActivity
                 instance.getGameDirectory().getAbsolutePath()
         );
 
-        Intent gameServiceIntent =
-                new Intent(this, GameService.class);
-
+        Intent gameServiceIntent = new Intent(this, GameService.class);
         // Start the service a bit early
     }
 
@@ -255,7 +206,6 @@ public class GameActivity extends BaseActivity
                 .withEndAction(() -> {
                     ((ViewGroup) mLoadingScreen.getParent())
                             .removeView(mLoadingScreen);
-
                     mLoadingScreen = null;
                 })
                 .start();
@@ -270,89 +220,45 @@ public class GameActivity extends BaseActivity
     @Override
     public void exitEditor() {
         try {
-            mControlLayout.loadLayout(
-                    (CustomControls) null
-            );
-
+            mControlLayout.loadLayout((CustomControls) null);
             mControlLayout.setModifiable(false);
-
             System.gc();
-
-            mControlLayout.loadLayout(
-                    instance.getLaunchControls()
-            );
-
+            mControlLayout.loadLayout(instance.getLaunchControls());
             mDrawerPullButton.setVisibility(
-                    mControlLayout.hasMenuButton()
-                            ? View.GONE
-                            : View.VISIBLE
+                    mControlLayout.hasMenuButton() ? View.GONE : View.VISIBLE
             );
-
         } catch (Exception e) {
             Tools.showError(this, e);
         }
 
-        navDrawer.setAdapter(
-                gameActionArrayAdapter
-        );
-
-        navDrawer.setOnItemClickListener(
-                gameActionClickListener
-        );
-
+        navDrawer.setAdapter(gameActionArrayAdapter);
+        navDrawer.setOnItemClickListener(gameActionClickListener);
         isInEditor = false;
     }
 
     @Override
-    public void onServiceConnected(
-            ComponentName name,
-            IBinder service
-    ) {
-        GameService.LocalBinder localBinder =
-                (GameService.LocalBinder) service;
-
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        GameService.LocalBinder localBinder = (GameService.LocalBinder) service;
         mServiceBinder = localBinder;
-
-        launcherGLView.start(
-                localBinder.isActive
-        );
-
+        launcherGLView.start(localBinder.isActive);
         localBinder.isActive = true;
     }
 
     @Override
-    public void onServiceDisconnected(
-            ComponentName name
-    ) {
+    public void onServiceDisconnected(ComponentName name) {
     }
 
-    /*
-     * Android 14 (or some devices, at least) seems to dispatch
-     * the captured mouse events as trackball events due to a bug.
-     */
     @RequiresApi(api = Build.VERSION_CODES.O)
-    private boolean checkCaptureDispatchConditions(
-            MotionEvent event
-    ) {
+    private boolean checkCaptureDispatchConditions(MotionEvent event) {
         int eventSource = event.getSource();
-
-        return (eventSource &
-                InputDevice.SOURCE_MOUSE_RELATIVE) != 0
-                ||
-                (eventSource &
-                        InputDevice.SOURCE_MOUSE) != 0;
+        return (eventSource & InputDevice.SOURCE_MOUSE_RELATIVE) != 0
+                || (eventSource & InputDevice.SOURCE_MOUSE) != 0;
     }
 
     @Override
-    public boolean dispatchTrackballEvent(
-            MotionEvent ev
-    ) {
-        if (Tools.isAndroid8OrHigher()
-                && checkCaptureDispatchConditions(ev)) {
-
-            return launcherGLView
-                    .dispatchCapturedPointerEvent(ev);
-
+    public boolean dispatchTrackballEvent(MotionEvent ev) {
+        if (Tools.isAndroid8OrHigher() && checkCaptureDispatchConditions(ev)) {
+            return launcherGLView.dispatchCapturedPointerEvent(ev);
         } else {
             return super.dispatchTrackballEvent(ev);
         }
