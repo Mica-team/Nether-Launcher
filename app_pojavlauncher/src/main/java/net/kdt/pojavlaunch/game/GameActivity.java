@@ -1,5 +1,6 @@
 package net.kdt.pojavlaunch.game;
 
+
 import static net.kdt.pojavlaunch.Tools.dialogForceClose;
 import static net.kdt.pojavlaunch.game.platform.Platform.PLATFORM;
 import static net.kdt.pojavlaunch.prefs.LauncherPreferences.PREF_ENABLE_GYRO;
@@ -16,7 +17,6 @@ import android.content.ServiceConnection;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
-import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -82,9 +82,7 @@ import java.util.Objects;
 
 import git.artdeell.mojo.R;
 
-public class GameActivity extends BaseActivity
-        implements ControlButtonMenuListener, EditorExitable, ServiceConnection {
-
+public class GameActivity extends BaseActivity implements ControlButtonMenuListener, EditorExitable, ServiceConnection {
     public static final String INTENT_LAUNCH_VERSION = "intent_version";
     public static final String INTENT_LAUNCH_CLASSPATH = "intent_classpath";
 
@@ -114,98 +112,33 @@ public class GameActivity extends BaseActivity
     public static int mForcedPanningHeight = 0;
     public static int mImeHeight = 0;
 
-    private boolean isJarvisAccount() {
-        if (account == null || account.username == null) {
-            return false;
-        }
-
-        // Ignore all whitespace and compare without caring about case.
-        String username = account.username.replaceAll("\\s+", "");
-        return username.equalsIgnoreCase("jarvis");
-    }
-
-    private void playJarvisEasterEgg() {
-        if (!isJarvisAccount()) {
-            return;
-        }
-
-        try {
-            MediaPlayer player = MediaPlayer.create(this, R.raw.welcome_back);
-
-            if (player == null) {
-                Log.w("JarvisEasterEgg", "Could not create MediaPlayer");
-                return;
-            }
-
-            player.setOnCompletionListener(MediaPlayer::release);
-            player.setOnErrorListener((mp, what, extra) -> {
-                Log.w("JarvisEasterEgg", "MediaPlayer error: " + what + ", " + extra);
-                mp.release();
-                return true;
-            });
-
-            player.start();
-            Log.i("JarvisEasterEgg", "Jarvis easter egg triggered");
-        } catch (Throwable e) {
-            // The easter egg must never prevent Minecraft from launching.
-            Log.w("JarvisEasterEgg", "Could not play Jarvis easter egg", e);
-        }
-    }
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         instance = Instances.loadSelectedInstance();
         account = Accounts.getCurrent();
-
-        // Every new GameActivity created by pressing Play gets its own trigger.
-        // No savedInstanceState check: we want it every time Play is pressed.
-        playJarvisEasterEgg();
-
-        if (instance == null) {
-            Toast.makeText(
-                    this,
-                    R.string.instance_dir_missing,
-                    Toast.LENGTH_LONG
-            ).show();
+        if(instance == null) {
+            Toast.makeText(this, R.string.instance_dir_missing, Toast.LENGTH_LONG).show();
             finish();
             return;
         }
-
-        AsyncAssetManager.extractDefaultSettings(
-                this,
-                instance.getGameDirectory()
-        );
-
-        MCOptionUtils.load(
-                instance.getGameDirectory().getAbsolutePath()
-        );
+        AsyncAssetManager.extractDefaultSettings(this, instance.getGameDirectory());
+        MCOptionUtils.load(instance.getGameDirectory().getAbsolutePath());
 
         Intent gameServiceIntent = new Intent(this, GameService.class);
         // Start the service a bit early
+        ContextCompat.startForegroundService(this, gameServiceIntent);
+        }
     }
 
-    public void hideLoadingScreen() {
-        if (mLoadingScreen == null) {
-            return;
-        }
-
-        ((TextView) mLoadingScreen.findViewById(
-                R.id.main_loading_screen_text
-        )).setText(
-                getString(
-                        R.string.loading_screen_booted,
-                        PLATFORM.backendName()
-                )
-        );
-
+    public void hideLoadingScreen(){
+        if(mLoadingScreen == null) return;
+        ((TextView) mLoadingScreen.findViewById(R.id.main_loading_screen_text)).setText(getString(R.string.loading_screen_booted, PLATFORM.backendName()));
         mLoadingScreen.animate()
                 .alpha(0f)
                 .setDuration(300)
                 .withEndAction(() -> {
-                    ((ViewGroup) mLoadingScreen.getParent())
-                            .removeView(mLoadingScreen);
+                    ((ViewGroup) mLoadingScreen.getParent()).removeView(mLoadingScreen);
                     mLoadingScreen = null;
                 })
                 .start();
@@ -220,15 +153,13 @@ public class GameActivity extends BaseActivity
     @Override
     public void exitEditor() {
         try {
-            mControlLayout.loadLayout((CustomControls) null);
+            mControlLayout.loadLayout((CustomControls)null);
             mControlLayout.setModifiable(false);
             System.gc();
             mControlLayout.loadLayout(instance.getLaunchControls());
-            mDrawerPullButton.setVisibility(
-                    mControlLayout.hasMenuButton() ? View.GONE : View.VISIBLE
-            );
+            mDrawerPullButton.setVisibility(mControlLayout.hasMenuButton() ? View.GONE : View.VISIBLE);
         } catch (Exception e) {
-            Tools.showError(this, e);
+            Tools.showError(this,e);
         }
 
         navDrawer.setAdapter(gameActionArrayAdapter);
@@ -246,21 +177,28 @@ public class GameActivity extends BaseActivity
 
     @Override
     public void onServiceDisconnected(ComponentName name) {
+
     }
 
+    /*
+     * Android 14 (or some devices, at least) seems to dispatch the the captured mouse events as trackball events
+     * due to a bug(?) somewhere(????)
+     */
     @RequiresApi(api = Build.VERSION_CODES.O)
     private boolean checkCaptureDispatchConditions(MotionEvent event) {
         int eventSource = event.getSource();
-        return (eventSource & InputDevice.SOURCE_MOUSE_RELATIVE) != 0
-                || (eventSource & InputDevice.SOURCE_MOUSE) != 0;
+        // On my device, the mouse sends events as a relative mouse device.
+        // Not comparing with == here because apparently `eventSource` is a mask that can
+        // sometimes indicate multiple sources, like in the case of InputDevice.SOURCE_TOUCHPAD
+        // (which is *also* an InputDevice.SOURCE_MOUSE when controlling a cursor)
+        return (eventSource & InputDevice.SOURCE_MOUSE_RELATIVE) != 0 ||
+                (eventSource & InputDevice.SOURCE_MOUSE) != 0;
     }
 
     @Override
     public boolean dispatchTrackballEvent(MotionEvent ev) {
-        if (Tools.isAndroid8OrHigher() && checkCaptureDispatchConditions(ev)) {
+        if(Tools.isAndroid8OrHigher() && checkCaptureDispatchConditions(ev))
             return launcherGLView.dispatchCapturedPointerEvent(ev);
-        } else {
-            return super.dispatchTrackballEvent(ev);
-        }
+        else return super.dispatchTrackballEvent(ev);
     }
-}
+        }
