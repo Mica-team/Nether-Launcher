@@ -128,6 +128,380 @@ public class GameActivity extends BaseActivity implements ControlButtonMenuListe
         Intent gameServiceIntent = new Intent(this, GameService.class);
         // Start the service a bit early
         ContextCompat.startForegroundService(this, gameServiceIntent);
+        initLayout(R.layout.activity_basemain);
+
+        Platform.initialize(this, launcherGLView);
+
+        mGyroControl = new GyroControl(this);
+
+        // Enabling this on TextureView results in a broken white result
+        if(PREF_USE_ALTERNATE_SURFACE) getWindow().setBackgroundDrawable(null);
+        else getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+
+        // Set the sustained performance mode for available APIs
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+            getWindow().setSustainedPerformanceMode(PREF_SUSTAINED_PERFORMANCE);
+
+        // This is required on Android 10 for the insets listener
+        // https://issuetracker.google.com/issues/266331465
+        boolean androidCompat = Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q;
+        if(androidCompat)
+            getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        // Make keyboard pan the activity so the user sees what they're typing
+        ViewCompat.setOnApplyWindowInsetsListener(getWindow().getDecorView(), (view, insets) -> {
+            if(launcherGLView.mSurface == null)
+                return insets;
+            ViewPropertyAnimator animSurface = launcherGLView.mSurface.animate()
+                    .setDuration(100);
+            ViewPropertyAnimator animCursor = launcherGLView.mCursorView.animate()
+                    .setDuration(100);
+            if(!insets.isVisible(WindowInsetsCompat.Type.ime())){
+                animSurface.translationY(0).start();
+                animCursor.translationY(0).start();
+                mImeHeight = 0;
+                if(androidCompat) {
+                    // AndroidX keeps SystemUI visible for some reason after IME session
+                    view.postDelayed(() -> {
+                        view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN);
+                    }, 150);
+                }
+                return insets;
+            }
+            if(mForcedPanningHeight == 0 && !LauncherPreferences.PREF_KEYBOARD_AUTOPANNING)
+                return insets;
+            mImeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            int translationY;
+            // Autopanning (if keyboardPan wasn't clicked)
+            if(mForcedPanningHeight == 0) {
+                translationY = Tools.getTranslationFromCursorY(
+                        (int)(Platform.cursorY * launcherGLView.getCursorRatioY() + 100),
+                        launcherGLView.getHeight(),
+                        mImeHeight,
+                        0
+                );
+            } else
+                translationY = mForcedPanningHeight == -1 ? mImeHeight : Math.clamp(mImeHeight - mForcedPanningHeight, 0, mImeHeight);
+            animSurface.translationY(-translationY).start();
+            animCursor.translationY(-translationY).start();
+            return insets;
+        });
+
+        ingameControlsEditorArrayAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.menu_customcontrol));
+        ingameControlsEditorListener = (parent, view, position, id) -> {
+            switch(position) {
+                case 0: mControlLayout.addControlButton(new ControlData("New")); break;
+                case 1: mControlLayout.addDrawer(new ControlDrawerData()); break;
+                case 2: mControlLayout.addJoystickButton(new ControlJoystickData()); break;
+                case 3: mControlLayout.openLoadDialog(); break;
+                case 4: mControlLayout.openSaveDialog(this); break;
+                case 5: mControlLayout.openSetDefaultDialog(); break;
+                case 6: mControlLayout.openExitDialog(this);
+            }
+        };
+
+        // Recompute the gui scale when options are changed
+        MCOptionUtils.MCOptionListener optionListener = MCOptionUtils::getMcScale;
+        MCOptionUtils.addMCOptionListener(optionListener);
+        mControlLayout.setModifiable(false);
+
+        // Set the activity for the executor. Must do this here, or else Tools.showErrorRemote() may not
+        // execute the correct method
+        ContextExecutor.setActivity(this);
+        //Now, attach to the service. The game will only start when this happens, to make sure that we know the right state.
+        bindService(gameServiceIntent, this, 0);
+    }
+
+    protected void initLayout(int resId) {
+        setContentView(resId);
+        bindValues();
+        mControlLayout.setMenuListener(this);
+
+        mDrawerPullButton.setOnClickListener(v -> onClickedMenu());
+        drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+        launcherGLView.mCursorView.setCursorScale(LauncherPreferences.PREF_MOUSESCALE);
+        weakCursor = new WeakReference<>(launcherGLView.mCursorView);
+
+        try {
+            File latestLogFile = new File(Tools.DIR_GAME_HOME, "latestlog.txt");
+            if(!latestLogFile.exists() && !latestLogFile.createNewFile())
+                throw new IOException("Failed to create a new log file");
+            Logger.begin(latestLogFile.getAbsolutePath());
+
+            touchCharInput.setCharacterSender(new LwjglCharSender());
+
+            Bundle extras = Objects.requireNonNull(getIntent().getExtras());
+            String version = extras.getString(INTENT_LAUNCH_VERSION);
+            File[] classpath = (File[]) extras.getSerializable(INTENT_LAUNCH_CLASSPATH);
+
+            setTitle("MojoLauncher (" + version + ")");
+
+            // Menu
+            gameActionArrayAdapter = new ArrayAdapter<>(this,
+                    android.R.layout.simple_list_item_1, getResources().getStringArray(R.array.menu_ingame));
+            gameActionClickListener = (parent, view, position, id) -> {
+                switch(position) {
+                     case 0: dialogForceClose(GameActivity.this); break;
+                     case 1: openLogOutput(); break;
+                     case 2: dialogSendCustomKey(); break;
+                     case 3: openQuickSettings(); break;
+                     case 4: openCustomControls(); break;
+                }
+                drawerLayout.closeDrawers();
+            };
+            navDrawer.setAdapter(gameActionArrayAdapter);
+            navDrawer.setOnItemClickListener(gameActionClickListener);
+            drawerLayout.closeDrawers();
+
+            launcherGLView.setSurfaceReadyListener(() -> {
+                try {
+                    Tools.runOnUiThread(() -> { if(PREF_VIRTUAL_MOUSE_START) launcherGLView.mCursorView.setVisibility(View.VISIBLE); });
+                    runCraft(version, classpath);
+                }catch (Throwable e){
+                    Tools.showErrorRemote(e);
+                }
+            });
+        } catch (Throwable e) {
+            Tools.showError(this, e, true);
+        }
+    }
+
+    private void loadControls() {
+        try {
+            // Load keys
+            mControlLayout.loadLayout(instance.getLaunchControls());
+        } catch(IOException e) {
+            try {
+                Log.w("MainActivity", "Unable to load the control file, loading the default now", e);
+                mControlLayout.loadLayout(Tools.CTRLDEF_FILE);
+            } catch (IOException ioException) {
+                Tools.showError(this, ioException);
+            }
+        } catch (Throwable th) {
+            Tools.showError(this, th);
+        }
+        mDrawerPullButton.setVisibility(mControlLayout.hasMenuButton() ? View.GONE : View.VISIBLE);
+        mControlLayout.toggleControlVisible();
+    }
+
+    @Override
+    public void onAttachedToWindow() {
+        // Post to get the correct display dimensions after layout.
+        mControlLayout.post(()->{
+            Tools.getDisplayMetrics(this);
+            loadControls();
+        });
+    }
+
+    /** Boilerplate binding */
+    private void bindValues(){
+        mControlLayout = findViewById(R.id.main_control_layout);
+        launcherGLView = findViewById(R.id.main_game_render_view);
+        drawerLayout = findViewById(R.id.main_drawer_options);
+        navDrawer = findViewById(R.id.main_navigation_view);
+        loggerView = findViewById(R.id.mainLoggerView);
+        touchCharInput = findViewById(R.id.mainTouchCharInput);
+        mDrawerPullButton = findViewById(R.id.drawer_button);
+        mHotbarView = findViewById(R.id.hotbar_view);
+        mLoadingScreen = findViewById(R.id.main_loading_screen);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        ContextExecutor.setActivity(this);
+        if(PREF_ENABLE_GYRO) mGyroControl.enable();
+        PLATFORM.setHovered(true);
+    }
+
+    @Override
+    protected void onPause() {
+        ContextExecutor.clearActivity();
+        mGyroControl.disable();
+        // Avoid going through the JNI each time.
+        if (Platform.isGrabbing()){
+            CallbackBridge.sendKeyPress(KeyEvent.KEYCODE_ESCAPE);
+        }
+        if(mQuickSettingSideDialog != null) {
+            mQuickSettingSideDialog.cancel();
+        }
+        PLATFORM.setHovered(false);
+        super.onPause();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        PLATFORM.setVisible(true);
+    }
+
+    @Override
+    protected void onStop() {
+        PLATFORM.setVisible(false);
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        ContextExecutor.clearActivity();
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+
+        if(mGyroControl != null) mGyroControl.updateOrientation();
+        // Layout resize is practically guaranteed on a configuration change, and `onConfigurationChanged`
+        // does not implicitly start a layout. So, request a layout and expect the screen dimensions to be valid after the]
+        // post.
+        if(mControlLayout == null) return;
+        mControlLayout.requestLayout();
+        mControlLayout.post(()->{
+            // Child of mControlLayout, so refreshing size here is correct
+            launcherGLView.refreshSize();
+            mControlLayout.refreshControlButtonPositions();
+        });
+    }
+
+    @Override
+    protected void onPostResume() {
+        super.onPostResume();
+        if(mLoadingScreen != null && !(PLATFORM instanceof DummyBackend)) hideLoadingScreen();
+        if(launcherGLView != null)  // Useful when backing out of the app
+            Tools.MAIN_HANDLER.postDelayed(() -> launcherGLView.refreshSize(), 500);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == 1 && resultCode == Activity.RESULT_OK) {
+            // Reload PREF_DEFAULTCTRL_PATH
+            // If the storage root got unmounted/unreadable we won't be able to load the file anyway,
+            // and MissingStorageActivity will be started.
+            if(!Tools.checkStorageRoot(this)) return;
+            LauncherPreferences.loadPreferences(getApplicationContext());
+            try {
+                mControlLayout.loadLayout(LauncherPreferences.PREF_DEFAULTCTRL_PATH);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void runCraft(String versionId, File[] classpath) throws Throwable {
+        String renderer = instance.getLaunchRenderer();
+        if(!RendererCompatUtil.checkRendererCompatible(this, renderer)) {
+            RendererCompatUtil.RenderersList renderersList = RendererCompatUtil.getCompatibleRenderers(this);
+            String firstCompatibleRenderer = renderersList.rendererIds.get(0);
+            Log.w("runCraft","Incompatible renderer "+renderer+ " will be replaced with "+firstCompatibleRenderer);
+            renderer = firstCompatibleRenderer;
+        }
+        Logger.appendToLog("--------- Starting game with Launcher Debug!");
+        Tools.printLauncherInfo(versionId, instance.getLaunchArgs(), renderer, this);
+        JREUtils.redirectAndPrintJRELog();
+        GameRunner.launchGame(this, account, instance, versionId, classpath, renderer);
+        //Note that we actually stall in the above function, even if the game crashes. But let's be safe.
+        Tools.runOnUiThread(()-> mServiceBinder.isActive = false);
+    }
+
+    private void dialogSendCustomKey() {
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        dialog.setTitle(R.string.control_customkey);
+        dialog.setItems(KeycodeUtils.generateKeyName(), (dInterface, position) -> KeycodeUtils.execKeyIndex(position));
+        dialog.show();
+    }
+
+    boolean isInEditor;
+    private void openCustomControls() {
+        if(ingameControlsEditorListener == null || ingameControlsEditorArrayAdapter == null) return;
+
+        mControlLayout.setModifiable(true);
+        navDrawer.setAdapter(ingameControlsEditorArrayAdapter);
+        navDrawer.setOnItemClickListener(ingameControlsEditorListener);
+        mDrawerPullButton.setVisibility(View.VISIBLE);
+        isInEditor = true;
+    }
+
+    private void openLogOutput() {
+        loggerView.setVisibility(View.VISIBLE);
+    }
+
+    private void openQuickSettings() {
+        if(mQuickSettingSideDialog == null) {
+            mQuickSettingSideDialog = new QuickSettingSideDialog(this, mControlLayout) {
+                @Override
+                public void onResolutionChanged() {
+                    launcherGLView.refreshSize();
+                    mHotbarView.onResolutionChanged();
+                }
+
+                @Override
+                public void onGyroStateChanged() {
+                    mGyroControl.updateOrientation();
+                    if (PREF_ENABLE_GYRO) {
+                        mGyroControl.enable();
+                    } else {
+                        mGyroControl.disable();
+                    }
+                }
+            };
+        }
+        mQuickSettingSideDialog.appear(true);
+    }
+
+    public static void toggleMouse(Context ctx) {
+        // Avoid going through the JNI each time.
+        if (Platform.isGrabbing()) return;
+        GameCursorView cursorView = Tools.getWeakReference(weakCursor);
+        if(cursorView == null) return;
+        int toastString = 0;
+        switch (cursorView.getVisibility()) {
+            case View.GONE:
+            case View.INVISIBLE:
+                toastString = R.string.control_mouseon;
+                cursorView.setVisibility(View.VISIBLE);
+                break;
+            case View.VISIBLE:
+                toastString = R.string.control_mouseoff;
+                cursorView.setVisibility(View.GONE);
+                break;
+        }
+
+        if(toastString != 0) Toast.makeText(ctx, toastString, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if(isInEditor) {
+            if(event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+                if(event.getAction() == KeyEvent.ACTION_DOWN) mControlLayout.askToExit(this);
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
+        boolean handleEvent;
+        if(!(handleEvent = launcherGLView.processKeyEvent(event))) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && !touchCharInput.isEnabled()) {
+                if(event.getAction() != KeyEvent.ACTION_UP) return true; // We eat it anyway
+                CallbackBridge.sendKeyPress(KeyEvent.KEYCODE_ESCAPE);
+                return true;
+            }
+        }
+        return handleEvent;
+    }
+
+    public static void switchKeyboardState(boolean panning) {
+        if(touchCharInput != null) {
+            touchCharInput.switchKeyboardState();
+            GameActivity.mForcedPanningHeight = panning ? -1 : 0;
+        }
+    }
+    public static void toggleKeyboardState(boolean state, int panningHeight) {
+        if(touchCharInput != null) {
+            touchCharInput.setKeyboardState(state);
+            GameActivity.mForcedPanningHeight = panningHeight;
         }
     }
 
@@ -201,4 +575,4 @@ public class GameActivity extends BaseActivity implements ControlButtonMenuListe
             return launcherGLView.dispatchCapturedPointerEvent(ev);
         else return super.dispatchTrackballEvent(ev);
     }
-        }
+}
