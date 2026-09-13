@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Locale;
 
 @Keep
 public class Account {
@@ -103,17 +104,8 @@ public class Account {
                 return;
             }
 
-            /*
-             * Save the COMPLETE skin first.
-             *
-             * Minecraft needs the complete texture,
-             * not only the face.
-             */
             saveFullSkin(skinBytes);
 
-            /*
-             * Generate the launcher face.
-             */
             Bitmap skinFace =
                     new SkinHeadRenderer().render(
                             100,
@@ -161,11 +153,6 @@ public class Account {
 
         } catch (IOException | RuntimeException e) {
 
-            /*
-             * IMPORTANT:
-             * Network failure must NEVER prevent
-             * an offline/local account from being used.
-             */
             Log.w(
                     "SkinLoader",
                     "Could not download skin; using cached skin if available",
@@ -211,10 +198,6 @@ public class Account {
                 return;
             }
 
-            /*
-             * Copy the original PNG into our
-             * stable cache location.
-             */
             copyLocalSkinToCache(
                     localSkin
             );
@@ -376,12 +359,6 @@ public class Account {
                 return;
             }
 
-            /*
-             * Try to download a fresh copy.
-             *
-             * If there is no internet this simply
-             * fails safely and the old cache remains.
-             */
             updateSkinFace();
 
         } catch (Throwable e) {
@@ -397,6 +374,28 @@ public class Account {
     public boolean isLocal() {
         return accessToken == null
                 || accessToken.equals("0");
+    }
+
+    /**
+     * Returns true when this is a local account
+     * whose username is "Jarvis", ignoring
+     * capitalization and whitespace.
+     */
+    public boolean isJarvisAccount() {
+
+        if (
+                authType != AuthType.LOCAL ||
+                username == null
+        ) {
+            return false;
+        }
+
+        String normalized =
+                username
+                        .replaceAll("\\s+", "")
+                        .toLowerCase(Locale.ROOT);
+
+        return "jarvis".equals(normalized);
     }
 
     public void save()
