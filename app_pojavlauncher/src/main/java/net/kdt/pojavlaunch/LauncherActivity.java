@@ -60,6 +60,7 @@ public class LauncherActivity extends BaseActivity {
     private ProgressServiceKeeper mProgressServiceKeeper;
     private NotificationManager mNotificationManager;
     private static ActivityResultLauncher<String> mRequestPermissionLauncher;
+    private boolean mLowResourceMode;
 
     /* Allows to switch from one button "type" to another */
     private final FragmentManager.FragmentLifecycleCallbacks mFragmentCallbackListener = new FragmentManager.FragmentLifecycleCallbacks() {
@@ -151,6 +152,7 @@ public class LauncherActivity extends BaseActivity {
         }
         return false;
     };
+
     @Override
     protected boolean shouldIgnoreNotch() {
         return getResources().getConfiguration().orientation == ORIENTATION_PORTRAIT;
@@ -168,7 +170,7 @@ public class LauncherActivity extends BaseActivity {
 
         try {
             Os.setenv("TMPDIR", Tools.DIR_CACHE.getAbsolutePath(), true);
-         }
+        }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -200,6 +202,33 @@ public class LauncherActivity extends BaseActivity {
 
         new AsyncVersionList().getVersionList(versions -> ExtraCore.setValue(ExtraConstants.RELEASE_TABLE, versions));
 
+        observeProgress();
+    }
+
+    /**
+     * Put the launcher into a lightweight background state while Minecraft is running.
+     * The launcher process stays alive so game errors can still be handled normally and the
+     * launcher can be recreated cleanly when the game exits.
+     */
+    public void enterLowResourceMode() {
+        if(mLowResourceMode) return;
+        mLowResourceMode = true;
+
+        // Stop launcher-only progress observers while Minecraft owns the device resources.
+        ProgressKeeper.removeTaskCountListener(mProgressLayout);
+        ProgressKeeper.removeTaskCountListener(mProgressServiceKeeper);
+        mProgressLayout.cleanUpObservers();
+
+        // The launcher is no longer visible, so don't keep its UI actively rendering.
+        mFragmentView.setVisibility(View.GONE);
+        mSettingsButton.setVisibility(View.GONE);
+        mProgressLayout.setVisibility(View.GONE);
+
+        // Move the launcher task behind Minecraft without killing the launcher process.
+        moveTaskToBack(true);
+    }
+
+    private void observeProgress() {
         mProgressLayout.observe(ProgressLayout.DOWNLOAD_GAME);
         mProgressLayout.observe(ProgressLayout.UNPACK_RUNTIME);
         mProgressLayout.observe(ProgressLayout.INSTALL_MODPACK);
@@ -209,9 +238,23 @@ public class LauncherActivity extends BaseActivity {
         mProgressLayout.observe(ProgressLayout.DATA_MIGRATION);
     }
 
+    private void restoreNormalResourceMode() {
+        if(!mLowResourceMode) return;
+        mLowResourceMode = false;
+
+        mFragmentView.setVisibility(View.VISIBLE);
+        mSettingsButton.setVisibility(View.VISIBLE);
+        mProgressLayout.setVisibility(View.VISIBLE);
+
+        ProgressKeeper.addTaskCountListener(mProgressServiceKeeper);
+        ProgressKeeper.addTaskCountListener(mProgressLayout);
+        observeProgress();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        restoreNormalResourceMode();
         ContextExecutor.setActivity(this);
         InstanceInstaller.postInstallCheck(this);
     }
