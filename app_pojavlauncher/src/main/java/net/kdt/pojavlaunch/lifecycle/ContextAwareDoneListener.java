@@ -7,6 +7,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 
+import net.kdt.pojavlaunch.LauncherActivity;
 import net.kdt.pojavlaunch.game.GameActivity;
 import git.artdeell.mojo.R;
 import net.kdt.pojavlaunch.Tools;
@@ -50,8 +51,14 @@ public class ContextAwareDoneListener implements MoJsonExtras.DoneListener, Cont
         try {
             Intent gameStartIntent = createGameStartIntent(activity);
             activity.startActivity(gameStartIntent);
-            activity.finish();
-            android.os.Process.killProcess(android.os.Process.myPid()); //You should kill yourself, NOW!
+
+            // Keep the launcher process alive, but move its task out of the foreground.
+            // LauncherActivity will restore its normal UI/resource usage when it resumes.
+            if (activity instanceof LauncherActivity) {
+                ((LauncherActivity) activity).enterLowResourceMode();
+            } else {
+                activity.moveTaskToBack(true);
+            }
         } catch (Throwable e) {
             Tools.showError(activity.getBaseContext(), e);
         }
@@ -71,7 +78,6 @@ public class ContextAwareDoneListener implements MoJsonExtras.DoneListener, Cont
                 NotificationUtils.PENDINGINTENT_CODE_GAME_START,
                 NotificationUtils.NOTIFICATION_ID_GAME_START
         );
-        // You should keep yourself safe, NOW!
-        // otherwise android does weird things...
+        // The launcher process stays alive only when the game was started directly from its Activity.
     }
 }
