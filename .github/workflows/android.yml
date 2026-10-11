@@ -63,28 +63,15 @@ jobs:
           gradle :app_pojavlauncher:assembleNoruntimeDebug
           mv app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk out/NetherLauncher-debug-noruntime.apk
 
-      - name: Get Legacy Zink
-        run: git clone https://github.com/Mica-team/ZinkPlugin.git ZinkPlugin
-
-      - name: Build Legacy Zink
-        continue-on-error: true
-        working-directory: ZinkPlugin
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
-          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then cp app/build/outputs/apk/debug/app-debug.apk ../out/NetherLauncher-ZinkPlugin-debug.apk; fi
-
       - name: Generate checksums
         run: |
           md5sum out/NetherLauncher-debug-full.apk > out/NetherLauncher-debug-full.md5
           md5sum out/NetherLauncher-debug-noruntime.apk > out/NetherLauncher-debug-noruntime.md5
-          if [ -f out/NetherLauncher-ZinkPlugin-debug.apk ]; then md5sum out/NetherLauncher-ZinkPlugin-debug.apk > out/NetherLauncher-ZinkPlugin-debug.md5; fi
 
       - name: Create ZIP
         run: |
           cd out
-          zip NetherLauncher-with-Legacy-Zink.zip NetherLauncher-debug-full.apk NetherLauncher-debug-noruntime.apk
-          [ -f NetherLauncher-ZinkPlugin-debug.apk ] && zip NetherLauncher-with-Legacy-Zink.zip NetherLauncher-ZinkPlugin-debug.apk
+          zip NetherLauncher-debug-builds.zip NetherLauncher-debug-full.apk NetherLauncher-debug-noruntime.apk
 
       - name: Upload Full Debug
         uses: actions/upload-artifact@v4
@@ -102,17 +89,8 @@ jobs:
             out/NetherLauncher-debug-noruntime.apk
             out/NetherLauncher-debug-noruntime.md5
 
-      - name: Upload Legacy Zink
-        if: ${{ hashFiles('out/NetherLauncher-ZinkPlugin-debug.apk') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: NetherLauncher-Legacy-Zink
-          path: |
-            out/NetherLauncher-ZinkPlugin-debug.apk
-            out/NetherLauncher-ZinkPlugin-debug.md5
-
       - name: Upload Combined ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: NetherLauncher-with-Legacy-Zink
-          path: out/NetherLauncher-with-Legacy-Zink.zip
+          name: NetherLauncher-debug-builds
+          path: out/NetherLauncher-debug-builds.zip
