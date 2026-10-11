@@ -184,7 +184,9 @@ public class LauncherPreferences {
     private static int findBestResolution(Context context, boolean isDevicePowerful) {
         DisplayMetrics metrics = context.getResources().getDisplayMetrics();
         int minSide = Math.min(metrics.widthPixels, metrics.heightPixels);
-        int targetSide = isDevicePowerful ? 1080 : 720;
+        // Use a slightly lower default render resolution on weaker devices to reduce GPU load.
+        // This is only a default; any resolution ratio explicitly saved by the user is preserved.
+        int targetSide = isDevicePowerful ? 1080 : 640;
         if (minSide <= targetSide) return 100; // No need to scale down
 
         float ratio = (100f * targetSide / minSide);
