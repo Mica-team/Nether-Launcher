@@ -68,11 +68,6 @@ jobs:
           md5sum out/NetherLauncher-debug-full.apk > out/NetherLauncher-debug-full.md5
           md5sum out/NetherLauncher-debug-noruntime.apk > out/NetherLauncher-debug-noruntime.md5
 
-      - name: Create ZIP
-        run: |
-          cd out
-          zip NetherLauncher-debug-builds.zip NetherLauncher-debug-full.apk NetherLauncher-debug-noruntime.apk
-
       - name: Upload Full Debug
         uses: actions/upload-artifact@v4
         with:
@@ -88,9 +83,3 @@ jobs:
           path: |
             out/NetherLauncher-debug-noruntime.apk
             out/NetherLauncher-debug-noruntime.md5
-
-      - name: Upload Combined ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: NetherLauncher-debug-builds
-          path: out/NetherLauncher-debug-builds.zip
