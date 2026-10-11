@@ -5,6 +5,12 @@
     <net.kdt.pojavlaunch.prefs.BackButtonPreference/>
 
     <PreferenceCategory android:title="@string/preference_category_video" >
+        <androidx.preference.SwitchPreferenceCompat
+            android:key="batterySaver"
+            android:defaultValue="false"
+            android:title="@string/preference_battery_saver_title"
+            android:summary="@string/preference_battery_saver_summary" />
+
         <androidx.preference.ListPreference
             android:title="@string/mcl_setting_category_renderer"
             android:key="renderer"
