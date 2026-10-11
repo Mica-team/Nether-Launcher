@@ -1,4 +1,4 @@
-name: Nether Launcher Test Build
+name: Nether Launcher Release Build
 
 on:
   push:
@@ -55,31 +55,36 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Build APKs
+      - name: Build Release APKs
         run: |
+          set -e
           mkdir -p out
-          gradle :app_pojavlauncher:assembleFullDebug
-          mv app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk out/NetherLauncher-debug-full.apk
-          gradle :app_pojavlauncher:assembleNoruntimeDebug
-          mv app_pojavlauncher/build/outputs/apk/noruntime/debug/app_pojavlauncher-noruntime-debug.apk out/NetherLauncher-debug-noruntime.apk
+          gradle :app_pojavlauncher:assembleFullPubRelease
+          FULL_APK=$(find app_pojavlauncher/build/outputs/apk/full/pubRelease -type f -name '*.apk' -print -quit)
+          test -n "$FULL_APK"
+          cp "$FULL_APK" out/NetherLauncher-release-full.apk
+          gradle :app_pojavlauncher:assembleNoruntimePubRelease
+          NORUNTIME_APK=$(find app_pojavlauncher/build/outputs/apk/noruntime/pubRelease -type f -name '*.apk' -print -quit)
+          test -n "$NORUNTIME_APK"
+          cp "$NORUNTIME_APK" out/NetherLauncher-release-noruntime.apk
 
       - name: Generate checksums
         run: |
-          md5sum out/NetherLauncher-debug-full.apk > out/NetherLauncher-debug-full.md5
-          md5sum out/NetherLauncher-debug-noruntime.apk > out/NetherLauncher-debug-noruntime.md5
+          md5sum out/NetherLauncher-release-full.apk > out/NetherLauncher-release-full.md5
+          md5sum out/NetherLauncher-release-noruntime.apk > out/NetherLauncher-release-noruntime.md5
 
-      - name: Upload Full Debug
+      - name: Upload Full Release
         uses: actions/upload-artifact@v4
         with:
-          name: NetherLauncher-debug-full
+          name: NetherLauncher-release-full
           path: |
-            out/NetherLauncher-debug-full.apk
-            out/NetherLauncher-debug-full.md5
+            out/NetherLauncher-release-full.apk
+            out/NetherLauncher-release-full.md5
 
-      - name: Upload No Runtime
+      - name: Upload No Runtime Release
         uses: actions/upload-artifact@v4
         with:
-          name: NetherLauncher-debug-noruntime
+          name: NetherLauncher-release-noruntime
           path: |
-            out/NetherLauncher-debug-noruntime.apk
-            out/NetherLauncher-debug-noruntime.md5
+            out/NetherLauncher-release-noruntime.apk
+            out/NetherLauncher-release-noruntime.md5
