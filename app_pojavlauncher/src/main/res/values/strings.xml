@@ -508,4 +508,6 @@
     <string name="loading_screen_title">Game is loading…</string>
     <string name="loading_screen_booted">Ready - running on %1$s!</string>
     <string name="loading_screen_warning">If the game is taking too long to load, it may have crashed</string>
+    <string name="preference_battery_saver_title">Battery Saver</string>
+    <string name="preference_battery_saver_summary">Enables V-Sync, sets resolution scale to 50%, and enables sustained performance mode. Your previous settings are restored when turned off.</string>
 </resources>
