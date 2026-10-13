@@ -40,6 +40,18 @@ jobs:
           curl -L "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/libvulkan_freedreno.so" -o app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
           ls -lh app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
 
+      - name: Get Mesa
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.MESA_ACTIONS }}
+          repo: MojoLauncher/mesa-unified2
+          workflow: android.yml
+          workflow_conclusion: success
+          branch: mojo/26.2
+          name: mesa-aar
+          path: app_mojo/libs
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
