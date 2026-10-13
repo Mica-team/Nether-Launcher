@@ -33,12 +33,16 @@ jobs:
           name: output-aar
           path: app_pojavlauncher/libs
 
-      - name: Get Turnip
-        continue-on-error: true
+      - name: Get Turnip (Freedreno Vulkan driver)
         run: |
-          mkdir -p app_pojavlauncher/src/main/jniLibs/arm64-v8a
-          curl -L "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/libvulkan_freedreno.so" -o app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
-          ls -lh app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
+          set -eu
+          DRIVER_DIR="app_pojavlauncher/src/main/jniLibs/arm64-v8a"
+          DRIVER_URL="https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/libvulkan_freedreno.so"
+          mkdir -p "$DRIVER_DIR"
+          curl -fL --retry 3 --retry-delay 2 "$DRIVER_URL" -o "$DRIVER_DIR/libvulkan_freedreno.so"
+          test -s "$DRIVER_DIR/libvulkan_freedreno.so"
+          file "$DRIVER_DIR/libvulkan_freedreno.so"
+          ls -lh "$DRIVER_DIR/libvulkan_freedreno.so"
 
       - name: Get Mesa Zink (without token)
         continue-on-error: true
