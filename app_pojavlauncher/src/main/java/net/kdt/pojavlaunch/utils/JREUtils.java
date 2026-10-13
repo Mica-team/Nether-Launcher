@@ -248,19 +248,19 @@ public class JREUtils {
         switch (renderer){
             case "freedreno_kgsl":
                 preloadVk = false;
-            case "mica_zink":
-                renderLibrary = MicaMesaUtils.getEglPath();
-                useGles = false;
-                bypassNamespace = true;
-                glesVersion = 3;
-                MojoExec.preloadVulkan();
-                break;
             case "vulkan_zink":
                 renderLibrary = MesaUtils.getPreferredEGL();
                 useGles = false;
                 bypassNamespace = true; // Mesa is linked to a bunch of libraries not available in the pojavexec namespace
                 glesVersion = 3;
                 if(preloadVk) MojoExec.preloadVulkan(); // Zink requires Vulkan library to be preloaded
+                break;
+            case "mica_zink":
+                renderLibrary = MicaMesaUtils.getEglPath();
+                useGles = false;
+                bypassNamespace = true;
+                glesVersion = 3;
+                MojoExec.preloadVulkan();
                 break;
             case "opengles3_ltw" :
                 renderLibrary = "libltw.so";
