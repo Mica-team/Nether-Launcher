@@ -36,6 +36,8 @@ public class RendererCompatUtil {
         boolean deviceHasVulkan = checkVulkanSupport(context.getPackageManager());
         // Current Mesa requires API29+
         boolean deviceCompatibleMesa = SDK_INT >= 29 && new File(Tools.NATIVE_LIB_DIR, "libEGL_mesa.so").exists();
+        // The Mica Mesa bundle is installed from app assets on first use, so it is not in NATIVE_LIB_DIR.
+        boolean deviceCompatibleMicaMesa = SDK_INT >= 29 && Architecture.is64BitsDevice() && !Architecture.isx86Device();
         boolean deviceHasOpenGLES3 = JREUtils.getDetectedVersion() >= 3;
         // LTW is an optional dependency
         boolean appHasLtw = new File(Tools.NATIVE_LIB_DIR, "libltw.so").exists();
@@ -44,7 +46,8 @@ public class RendererCompatUtil {
         for(int i = 0; i < defaultRenderers.length; i++) {
             String rendererId = defaultRenderers[i];
             if(rendererId.contains("vulkan") && !deviceHasVulkan) continue;
-            if(rendererId.contains("zink") && !deviceCompatibleMesa) continue;
+            if(rendererId.equals("mica_zink") && (!deviceCompatibleMicaMesa || !deviceHasVulkan)) continue;
+            if(rendererId.contains("zink") && !rendererId.equals("mica_zink") && !deviceCompatibleMesa) continue;
             // freedreno is available only on Adreno GPUs
             if(rendererId.contains("freedreno") && (!(GLInfoUtils.getGlInfo().isAdreno()) || !deviceCompatibleMesa)) continue;
             if(rendererId.contains("ltw") && (!deviceHasOpenGLES3 || !appHasLtw)) continue;

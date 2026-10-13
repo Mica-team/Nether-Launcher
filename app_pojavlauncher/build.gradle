@@ -221,7 +221,9 @@ class AssetTaskRegistrar {
     private def onlineUnzipTask(String downloadUrl, String name, File targetExtractionDir) {
         createDirectories targetExtractionDir
 
-        def downloadTarget = new File(targetDownloadDir, name)
+        // Each build variant must own its download output; otherwise Gradle sees multiple
+        // variant-specific download tasks writing the same file and rejects the dependency graph.
+        def downloadTarget = new File(targetDownloadDir, "${name}${variantName}")
 
         def dependencySuffix = "${name}${variantName}"
         def downloadTask = project.tasks.register("download${dependencySuffix}", Download) {
@@ -308,6 +310,9 @@ afterEvaluate {
         registrar.onlineJarDependency cacioJarUrl, "caciocavallo", "cacio-androidnw", "-9ba6264d8c-1", "", "components/caciocavallo"
 
         registrar.onlineJarDependency cacioJarUrl, "caciocavallo17", "cacio-tta", "d4553e5689", "-jar-with-dependencies", "components/caciocavallo17"
+
+        // Separate Mesa Zink bundle; does not use or replace the installed Zink plugin.
+        registrar.onlineZipDependency("https://github.com/Mica-team/mesa/releases/download/mesa-zink-latest/mesa-zink-aarch64.zip", "MicaMesaZink", "components/mica_mesa")
     }
 }
 

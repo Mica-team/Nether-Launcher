@@ -137,9 +137,13 @@ public class JREUtils {
         setupAngleEnv(context, envMap);
         setupFfmpegEnv(context, envMap);
         // Init mesa renderers
-        MesaUtils.initEnvironment(context, renderer, envMap);
-
-        setRendererLibraryPath(Tools.NATIVE_LIB_DIR, MesaUtils.getCustomZinkLibraryPath());
+        if ("mica_zink".equals(renderer)) {
+            MicaMesaUtils.initEnvironment(context, envMap);
+            setRendererLibraryPath(Tools.NATIVE_LIB_DIR, MicaMesaUtils.getLibraryPath());
+        } else {
+            MesaUtils.initEnvironment(context, renderer, envMap);
+            setRendererLibraryPath(Tools.NATIVE_LIB_DIR, MesaUtils.getCustomZinkLibraryPath());
+        }
 
         if(LauncherPreferences.PREF_BIG_CORE_AFFINITY) envMap.put("POJAV_BIG_CORE_AFFINITY", "1");
         if(LauncherPreferences.PREF_ALSOFT_FORCE_OPENSL) envMap.put("ALSOFT_DRIVERS", "opensl");
@@ -250,6 +254,13 @@ public class JREUtils {
                 bypassNamespace = true; // Mesa is linked to a bunch of libraries not available in the pojavexec namespace
                 glesVersion = 3;
                 if(preloadVk) MojoExec.preloadVulkan(); // Zink requires Vulkan library to be preloaded
+                break;
+            case "mica_zink":
+                renderLibrary = MicaMesaUtils.getEglPath();
+                useGles = false;
+                bypassNamespace = true;
+                glesVersion = 3;
+                MojoExec.preloadVulkan();
                 break;
             case "opengles3_ltw" :
                 renderLibrary = "libltw.so";
