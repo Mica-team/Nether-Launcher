@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.res.AssetManager;
 import android.util.Log;
 
+import net.kdt.pojavlaunch.Tools;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -37,7 +39,7 @@ public final class MicaMesaUtils {
         envMap.put("MESA_GLSL_VERSION_OVERRIDE", "460");
         envMap.put("LIBGL_DRIVERS_PATH", zinkDriver.getParentFile().getAbsolutePath());
         envMap.put("LD_LIBRARY_PATH", libDir.getAbsolutePath() + ":" +
-                zinkDriver.getParentFile().getAbsolutePath());
+                zinkDriver.getParentFile().getAbsolutePath() + ":" + Tools.NATIVE_LIB_DIR);
         envMap.put("MESA_LOADER_DRIVER_PATH", zinkDriver.getParentFile().getAbsolutePath());
     }
 
