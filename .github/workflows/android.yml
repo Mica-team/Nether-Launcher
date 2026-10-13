@@ -40,41 +40,18 @@ jobs:
           curl -L "https://github.com/Mica-team/freedreno_turnip-CI/releases/download/github_run/libvulkan_freedreno.so" -o app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
           ls -lh app_pojavlauncher/src/main/jniLibs/arm64-v8a/libvulkan_freedreno.so
 
-      - name: Get Mesa (arm32)
-        uses: dawidd6/action-download-artifact@v6
+      - name: Get Mesa Zink (without token)
         continue-on-error: true
-        with:
-          github_token: ${{ secrets.MESA_ACTIONS }}
-          repo: Mica-team/mesa
-          workflow: android.yml
-          workflow_conclusion: success
-          branch: 21.2-virgl
-          name: libzink_arm32
-          path: app_pojavlauncher/libs/mesa/arm32
-
-      - name: Get Mesa (arm64)
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          github_token: ${{ secrets.MESA_ACTIONS }}
-          repo: Mica-team/mesa
-          workflow: android.yml
-          workflow_conclusion: success
-          branch: 21.2-virgl
-          name: libzink_aarch64
-          path: app_pojavlauncher/libs/mesa/arm64
-
-      - name: Get Mesa (x86_64)
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          github_token: ${{ secrets.MESA_ACTIONS }}
-          repo: Mica-team/mesa
-          workflow: android.yml
-          workflow_conclusion: success
-          branch: 21.2-virgl
-          name: libzink_x86_64
-          path: app_pojavlauncher/libs/mesa/x86_64
+        run: |
+          set -eu
+          BASE="https://github.com/Mica-team/mesa/releases/download/mesa-zink-latest"
+          mkdir -p app_pojavlauncher/libs/mesa/arm32 app_pojavlauncher/libs/mesa/arm64 app_pojavlauncher/libs/mesa/x86_64
+          curl -fL --retry 3 "$BASE/mesa-zink-arm32.zip" -o /tmp/mesa-zink-arm32.zip
+          curl -fL --retry 3 "$BASE/mesa-zink-aarch64.zip" -o /tmp/mesa-zink-aarch64.zip
+          curl -fL --retry 3 "$BASE/mesa-zink-x86_64.zip" -o /tmp/mesa-zink-x86_64.zip
+          unzip -oq /tmp/mesa-zink-arm32.zip -d app_pojavlauncher/libs/mesa/arm32
+          unzip -oq /tmp/mesa-zink-aarch64.zip -d app_pojavlauncher/libs/mesa/arm64
+          unzip -oq /tmp/mesa-zink-x86_64.zip -d app_pojavlauncher/libs/mesa/x86_64
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
