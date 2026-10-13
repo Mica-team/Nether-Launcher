@@ -221,7 +221,9 @@ class AssetTaskRegistrar {
     private def onlineUnzipTask(String downloadUrl, String name, File targetExtractionDir) {
         createDirectories targetExtractionDir
 
-        def downloadTarget = new File(targetDownloadDir, name)
+        // Each build variant must own its download output; otherwise Gradle sees multiple
+        // variant-specific download tasks writing the same file and rejects the dependency graph.
+        def downloadTarget = new File(targetDownloadDir, "${name}${variantName}")
 
         def dependencySuffix = "${name}${variantName}"
         def downloadTask = project.tasks.register("download${dependencySuffix}", Download) {
