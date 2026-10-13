@@ -37,7 +37,7 @@ public class RendererCompatUtil {
         // Current Mesa requires API29+
         boolean deviceCompatibleMesa = SDK_INT >= 29 && new File(Tools.NATIVE_LIB_DIR, "libEGL_mesa.so").exists();
         // The Mica Mesa bundle is installed from app assets on first use, so it is not in NATIVE_LIB_DIR.
-        boolean deviceCompatibleMicaMesa = SDK_INT >= 29 && Architecture.is64BitsDevice();
+        boolean deviceCompatibleMicaMesa = SDK_INT >= 29 && Architecture.is64BitsDevice() && !Architecture.isx86Device();
         boolean deviceHasOpenGLES3 = JREUtils.getDetectedVersion() >= 3;
         // LTW is an optional dependency
         boolean appHasLtw = new File(Tools.NATIVE_LIB_DIR, "libltw.so").exists();
