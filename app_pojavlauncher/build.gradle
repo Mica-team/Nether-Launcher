@@ -308,6 +308,9 @@ afterEvaluate {
         registrar.onlineJarDependency cacioJarUrl, "caciocavallo", "cacio-androidnw", "-9ba6264d8c-1", "", "components/caciocavallo"
 
         registrar.onlineJarDependency cacioJarUrl, "caciocavallo17", "cacio-tta", "d4553e5689", "-jar-with-dependencies", "components/caciocavallo17"
+
+        // Separate Mesa Zink bundle; does not use or replace the installed Zink plugin.
+        registrar.onlineZipDependency("https://github.com/Mica-team/mesa/releases/download/mesa-zink-latest/mesa-zink-aarch64.zip", "MicaMesaZink", "components/mica_mesa")
     }
 }
 
